@@ -3,14 +3,36 @@ Node JS
 
 //COMANDOS PARA CREAR EL PROYECTO
 
-npm init			Crea el archivo json
-npx create-expo-app@latest	Crea el framework Expo
+npx create-expo-app@latest					Crea el framework Expo
+npx create-expo-app@latest moscas-sag --template blank 		Crea el framework Expo en blanco (de preferencia)
+
+
+//COMANDO PARA INSTALAR LA VISTA EN WEB
+npx expo install react-dom react-native-web @expo/metro-runtime
+
 
 //COMANDO PARA EJECUTAR EL PROYECTO
 npm run web                     Ejecutar el proyecto
+ctrl + c			Detener el proyecto
+R				Recarga el proyecto
+
+
+//INSTALACION DE LIBRERIA REACT NAVIGATION (Para navegar entre pantallas)
+
+npm install @react-navigation/native
+npx expo install react-native-screens react-native-safe-area-context
+
+STACK (efecto slide)
+npm install @react-navigation/stack
+
+npx expo install react-native-gesture-handler
+
 
 
 LINKS DE REFERENCIA:
 
 Curso de React Native
 https://www.youtube.com/watch?v=U23lNFm_J70&t=147s
+
+Crear login con React Native
+https://www.youtube.com/watch?v=8CDsAjgDbP4
