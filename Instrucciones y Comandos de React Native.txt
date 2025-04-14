@@ -1,0 +1,16 @@
+//REQUISITOS:
+Node JS
+
+//COMANDOS PARA CREAR EL PROYECTO
+
+npm init			Crea el archivo json
+npx create-expo-app@latest	Crea el framework Expo
+
+//COMANDO PARA EJECUTAR EL PROYECTO
+npm run web                     Ejecutar el proyecto
+
+
+LINKS DE REFERENCIA:
+
+Curso de React Native
+https://www.youtube.com/watch?v=U23lNFm_J70&t=147s
