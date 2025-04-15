@@ -21,6 +21,7 @@ export default function Login(props){
             }, 1000); // espera 1 segundo
         }catch (error){
             console.log(error);
+            Alert.alert('Error','El usuario o la contraseña son incorrectos')
         }
     }    
 
