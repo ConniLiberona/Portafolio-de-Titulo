@@ -6,6 +6,7 @@ Node JS
 npx create-expo-app@latest					Crea el framework Expo
 npx create-expo-app@latest moscas-sag --template blank 		Crea el framework Expo en blanco (de preferencia)
 
+npm install expo (si el proyecto no corre)
 
 //COMANDO PARA INSTALAR LA VISTA EN WEB
 npx expo install react-dom react-native-web @expo/metro-runtime
