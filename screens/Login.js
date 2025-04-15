@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, Image, TextInput } from 'react-native';
+import { StyleSheet, Text, View, Image, TextInput, TouchableOpacity } from 'react-native';
 
 export default function Login(){
     return (
@@ -11,6 +11,16 @@ export default function Login(){
             <View style={styles.tarjeta}>
                 <View style={styles.cajaTexto}>
                     <TextInput placeholder='correo@gmail.com' style={{paddingHorizontal:15}}/>
+                </View>
+
+                <View style={styles.cajaTexto}>
+                    <TextInput placeholder='Password' style={{paddingHorizontal:15}}/>
+                </View>
+
+                <View style={styles.PadreBoton}>
+                    <TouchableOpacity style={styles.cajaBoton}>
+                        <Text style={styles.TextoBoton}>Sign In</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
 
@@ -45,6 +55,25 @@ const styles = StyleSheet.create({
         shadowOpacity:0.25,
         shadowRadius:4,
         elevation:5,
-
+    },
+    cajaTexto:{
+        paddingVertical:20,
+        backgroundColor:'#cccccc90',
+        borderRadius:30,
+        marginVertical:10
+    },
+    PadreBoton:{
+        alignItems:'center'
+    },
+    cajaBoton:{
+        backgroundColor:'#E15252',
+        borderRadius:30,
+        paddingVertical:20,
+        width:150,
+        marginTop:20
+    },
+    TextoBoton:{
+        textAlign:'center',
+        color:'white'
     }
 });
