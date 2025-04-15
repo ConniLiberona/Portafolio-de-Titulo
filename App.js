@@ -16,12 +16,18 @@ function MyStack() {
     <Stack.Navigator>
       <Stack.Screen name="Login" component={Login} 
       options={{
-        title: "LOGIN",
+        title: "MONITOREO DE TRAMPAS",
         headerTintColor: "white",
         headerTitleAlign: "center",
         headerStyle: {backgroundColor: "#E15252"},
       }}/>
-      <Stack.Screen name="Home" component={Home} />
+      <Stack.Screen name="Home" component={Home} 
+      options={{
+        title: "HOME",
+        headerTintColor: "white",
+        headerTitleAlign: "center",
+        headerStyle: {backgroundColor: "#E15252"},
+      }}/>
     </Stack.Navigator>
   );
 }
