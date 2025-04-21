@@ -28,6 +28,39 @@ npm install @react-navigation/stack
 npx expo install react-native-gesture-handler
 
 
+//INSTALACION DE DEPENDENCIAS FIREBASE
+npm install firebase@9.6.7
+
+
+//INSTALACION DE DEPENDENCIAS EXPO PARA CRUD
+npm install -g expo-cli   						Si es que Expo CLI no está instalado
+expo install expo-constants dotenv					Mantiene variables de entorno privadas
+expo install react-native-masked-view					
+yarn add @react-navigation/native-stack @react-navigation/native
+yarn add react-native-svg
+
+
+//KEYS DE FIREBASE
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAqSiZUnH8sV0dcZUyDStTJPik3IBulz7I",
+  authDomain: "moscassag.firebaseapp.com",
+  databaseURL: "https://moscassag-default-rtdb.firebaseio.com",
+  projectId: "moscassag",
+  storageBucket: "moscassag.firebasestorage.app",
+  messagingSenderId: "427818028876",
+  appId: "1:427818028876:web:56a1d499780a5103da89e9"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
+
 
 LINKS DE REFERENCIA:
 
@@ -36,3 +69,11 @@ https://www.youtube.com/watch?v=U23lNFm_J70&t=147s
 
 Crear login con React Native
 https://www.youtube.com/watch?v=8CDsAjgDbP4
+
+Crear CRUD con Firebase y Firestore
+https://www.youtube.com/watch?v=4ErzY2J9zZc&t=114s
+
+//USER
+
+Correo: jo.tapiav@duocuc.cl
+Password: admin1234
