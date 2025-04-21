@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, Image, TextInput, TouchableOpacity, Alert } from 'react-native';
 
-import appFirebase from '../credenciales'
+import appFirebase from '../../credenciales'
 import { getAuth, signInWithEmailAndPassword} from 'firebase/auth'
 const auth = getAuth(appFirebase)
 
@@ -28,7 +28,7 @@ export default function Login(props){
     return (
         <View style={styles.padre}>
             <View>
-                <Image source={require('../assets/SAG.png')} style={styles.profile}/>
+                <Image source={require('../../assets/SAG.png')} style={styles.profile}/>
             </View>
 
             <View style={styles.tarjeta}>
