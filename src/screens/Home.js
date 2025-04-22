@@ -5,12 +5,38 @@ import { useNavigation } from '@react-navigation/native'
 export default function Home() {
   const navigation = useNavigation()
 
+//Agregar ruta en los Navigate!!!!  
   return (
+    <>
+
+    <View style={styles.container}>
+    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      <Text style={styles.buttonText}>Mapa - Visualizar Trampas</Text>
+    </TouchableOpacity>
+    </View>
+
     <View style={styles.container}>
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('NuevaFicha')}>
         <Text style={styles.buttonText}>Agregar Nueva Ficha</Text>
       </TouchableOpacity>
     </View>
+
+    <View style={styles.container}>
+    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      <Text style={styles.buttonText}>Listado de Fichas</Text>
+    </TouchableOpacity>
+    </View>
+    <View style={styles.container}>
+    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      <Text style={styles.buttonText}>Solicitudes Enviadas</Text>
+    </TouchableOpacity>
+    </View>
+    <View style={styles.container}>
+    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      <Text style={styles.buttonText}>Configuración</Text>
+    </TouchableOpacity>
+    </View>
+  </>
   )
 }
 
