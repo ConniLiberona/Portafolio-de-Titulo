@@ -38,6 +38,7 @@ expo install expo-constants dotenv					Mantiene variables de entorno privadas
 expo install react-native-masked-view					
 yarn add @react-navigation/native-stack @react-navigation/native
 yarn add react-native-svg
+npx expo install expo-linking
 
 
 //KEYS DE FIREBASE
