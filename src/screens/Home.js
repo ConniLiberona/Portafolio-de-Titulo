@@ -22,7 +22,7 @@ export default function Home() {
     </View>
 
     <View style={styles.container}>
-    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ListaFichas')}>
       <Text style={styles.buttonText}>Listado de Fichas</Text>
     </TouchableOpacity>
     </View>

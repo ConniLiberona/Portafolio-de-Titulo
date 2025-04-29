@@ -3,6 +3,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import Login from './screens/Login';
 import Home from './screens/Home';
 import NuevaFicha from './screens/NuevaFicha';
+import ListaFichas from './screens/ListaFichas';
 
 
 const Stack = createStackNavigator();
@@ -28,6 +29,14 @@ function MyStack() {
       <Stack.Screen name="NuevaFicha" component={NuevaFicha} 
       options={{
         title: "NUEVA FICHA",
+        headerTintColor: "white",
+        headerTitleAlign: "center",
+        headerStyle: {backgroundColor: "#E15252"},
+        presentation: 'modal',
+      }}/>
+      <Stack.Screen name="ListaFichas" component={ListaFichas} 
+      options={{
+        title: "LISTADO DE FICHAS",
         headerTintColor: "white",
         headerTitleAlign: "center",
         headerStyle: {backgroundColor: "#E15252"},
