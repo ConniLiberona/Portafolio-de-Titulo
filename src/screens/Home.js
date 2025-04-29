@@ -1,70 +1,69 @@
 import React from 'react'
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native'
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native'
 import { useNavigation } from '@react-navigation/native'
 
 export default function Home() {
   const navigation = useNavigation()
 
-//Agregar ruta en los Navigate!!!!  
   return (
-    <>
+    <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <Text style={styles.title}>Menú Principal</Text>
 
-    <View style={styles.container}>
-    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
-      <Text style={styles.buttonText}>Mapa - Visualizar Trampas</Text>
-    </TouchableOpacity>
-    </View>
-
-    <View style={styles.container}>
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('NuevaFicha')}>
-        <Text style={styles.buttonText}>Agregar Nueva Ficha</Text>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+        <Text style={styles.buttonText}>🗺️ Mapa - Visualizar Trampas</Text>
       </TouchableOpacity>
-    </View>
 
-    <View style={styles.container}>
-    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ListaFichas')}>
-      <Text style={styles.buttonText}>Listado de Fichas</Text>
-    </TouchableOpacity>
-    </View>
-    <View style={styles.container}>
-    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
-      <Text style={styles.buttonText}>Solicitudes Enviadas</Text>
-    </TouchableOpacity>
-    </View>
-    <View style={styles.container}>
-    <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
-      <Text style={styles.buttonText}>Configuración</Text>
-    </TouchableOpacity>
-    </View>
-  </>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('NuevaFicha')}>
+        <Text style={styles.buttonText}>📝 Agregar Nueva Ficha</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('ListaFichas')}>
+        <Text style={styles.buttonText}>📄 Listado de Fichas</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+        <Text style={styles.buttonText}>📤 Solicitudes Enviadas</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+        <Text style={styles.buttonText}>⚙️ Configuración</Text>
+      </TouchableOpacity>
+    </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center', // corregido typo: "alightItems" → "alignItems"
+  scrollContainer: {
+    flexGrow: 1,
+    backgroundColor: '#f2f2f2',
+    alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 24,
   },
   title: {
-    fontSize: 22,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#333',
     marginBottom: 30,
   },
   button: {
     backgroundColor: '#E15252',
-    paddingVertical: 15,
-    paddingHorizontal: 30,
+    paddingVertical: 18,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    marginVertical: 10,
+    width: '100%',
+    maxWidth: 350,
+    alignItems: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
   },
   buttonText: {
-    color: 'white',
+    color: '#fff',
     fontSize: 16,
-    textAlign: 'center',
+    fontWeight: '600',
   },
 })
