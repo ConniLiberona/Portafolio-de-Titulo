@@ -1,61 +1,63 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TextInput, ScrollView, Button, Alert} from 'react-native';
+import appMoscasSAG from '../../credenciales'
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, getDoc, setDoc} from 'firebase/firestore';
 
-export default function NuevaFicha() {
-  const [newItem, setNewItem] = useState({
-    id_ficha: 0,
-    region: 0,
-    oficina: '',
-    ruta: '',
-    cuadrante: 0,
-    subcuadrante: 0,
-    condicion: 0,
-    huso: 0,
-    n_trampa: 0,
-    fecha_vigencia: '',
-    fecha: new Date(),
-    actividad: '',
-    procpectoria: '',
-    localizacion: '',
-    observaciones: '',
-    codigo: 0,
-    version: '',
-    datum: '',
-    modelo: '',
-  });
+const db = getFirestore(appMoscasSAG)
+
+export default function NuevaFicha(props) {
+
+  const initialState = {
+    id_ficha: '',
+    region: '',
+  }
+
+  const [state, setState] = useState(initialState)
+
+  const handleChangeText = (value, name) =>{
+    setState({...state, [name]:value})
+  }
+
+  const saveFicha = async() =>{
+    try{
+      await addDoc(collection(db, 'fichas'),{
+          ...state
+      });
+      Alert.alert('Alerta',"Guardado con exito")
+      props.navigation.navigate('Home')
+    }
+    catch (error){
+      console.error(error)
+    }
+  }
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-      {[
-        ['id_ficha', 'ID Ficha'],
-        ['region', 'Región'],
-        ['oficina', 'Oficina'],
-        ['ruta', 'Ruta'],
-        ['cuadrante', 'Cuadrante'],
-        ['subcuadrante', 'Subcuadrante'],
-        ['condicion', 'Condición'],
-        ['huso', 'Huso'],
-        ['n_trampa', 'N° de Trampa'],
-        ['fecha_vigencia', 'Fecha Vigencia'],
-        ['fecha', 'Fecha'],
-        ['actividad', 'Actividad'],
-        ['procpectoria', 'Procpectoria'],
-        ['localizacion', 'Localización'],
-        ['observaciones', 'Observaciones'],
-        ['codigo', 'Código'],
-        ['version', 'Versión'],
-        ['datum', 'Datum'],
-        ['modelo', 'Modelo'],
-      ].map(([key, placeholder]) => (
-        <View style={styles.cajaTexto} key={key}>
-          <TextInput
-            placeholder={placeholder}
-            style={{ paddingHorizontal: 15 }}
-            onChangeText={(text) => setNewItem({ ...newItem, [key]: text })}
-          />
-        </View>
-      ))}
-    </ScrollView>
+  <View style={styles.cajaTexto}>
+    <TextInput
+      placeholder="ID Ficha"
+      style={{ paddingHorizontal: 15 }}
+      onChangeText={(value)=>handleChangeText(value, 'id_ficha')} 
+      value={state.id_ficha}
+    />
+  </View>
+
+  <View style={styles.cajaTexto}>
+    <TextInput
+      placeholder="Región"
+      style={{ paddingHorizontal: 15 }}
+      onChangeText={(value)=>handleChangeText(value, 'region')} 
+      value={state.region}
+    />
+  </View>
+
+  <View>
+    <Button title='Guardar Ficha' onPress={saveFicha}/>
+  </View> 
+
+
+</ScrollView>
+
   );
 }
 
@@ -69,5 +71,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#cccccc90',
     marginVertical: 10,
     borderRadius: 10,
+  },
+  button: {
+    backgroundColor: '#E15252',
+    paddingVertical: 15,
+    paddingHorizontal: 30,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
