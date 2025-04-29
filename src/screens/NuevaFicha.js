@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, ScrollView, Button, Alert} from 'react-native';
+import { StyleSheet, Text, View, TextInput, ScrollView, Alert, TouchableOpacity } from 'react-native'; // <-- Nota: importamos TouchableOpacity
 import appMoscasSAG from '../../credenciales'
-import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, getDoc, setDoc} from 'firebase/firestore';
+import { getFirestore, collection, addDoc } from 'firebase/firestore';
 
 const db = getFirestore(appMoscasSAG)
 
@@ -23,7 +23,7 @@ export default function NuevaFicha(props) {
       await addDoc(collection(db, 'fichas'),{
           ...state
       });
-      Alert.alert('Alerta',"Guardado con exito")
+      Alert.alert('Alerta',"Guardado con éxito")
       props.navigation.navigate('Home')
     }
     catch (error){
@@ -33,31 +33,29 @@ export default function NuevaFicha(props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
-  <View style={styles.cajaTexto}>
-    <TextInput
-      placeholder="ID Ficha"
-      style={{ paddingHorizontal: 15 }}
-      onChangeText={(value)=>handleChangeText(value, 'id_ficha')} 
-      value={state.id_ficha}
-    />
-  </View>
+      <View style={styles.cajaTexto}>
+        <TextInput
+          placeholder="ID Ficha"
+          style={{ paddingHorizontal: 15 }}
+          onChangeText={(value) => handleChangeText(value, 'id_ficha')} 
+          value={state.id_ficha}
+        />
+      </View>
 
-  <View style={styles.cajaTexto}>
-    <TextInput
-      placeholder="Región"
-      style={{ paddingHorizontal: 15 }}
-      onChangeText={(value)=>handleChangeText(value, 'region')} 
-      value={state.region}
-    />
-  </View>
+      <View style={styles.cajaTexto}>
+        <TextInput
+          placeholder="Región"
+          style={{ paddingHorizontal: 15 }}
+          onChangeText={(value) => handleChangeText(value, 'region')} 
+          value={state.region}
+        />
+      </View>
 
-  <View>
-    <Button title='Guardar Ficha' onPress={saveFicha}/>
-  </View> 
-
-
-</ScrollView>
-
+      {/* Botón personalizado */}
+      <TouchableOpacity style={styles.button} onPress={saveFicha}>
+        <Text style={styles.buttonText}>Guardar Ficha</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
@@ -73,9 +71,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   button: {
-    backgroundColor: '#E15252',
+    backgroundColor: '#E15252', // mismo color del título / botón anterior
     paddingVertical: 15,
     paddingHorizontal: 30,
+    borderRadius: 10, // bordes redondeados
+    marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -85,6 +87,7 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontSize: 16,
+    fontWeight: 'bold',
     textAlign: 'center',
   },
 });
