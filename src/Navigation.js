@@ -4,6 +4,7 @@ import Login from './screens/Login';
 import Home from './screens/Home';
 import NuevaFicha from './screens/NuevaFicha';
 import ListaFichas from './screens/ListaFichas';
+import DetalleFicha from './screens/DetalleFicha'; // Importa el nuevo componente
 
 
 const Stack = createStackNavigator();
@@ -43,6 +44,17 @@ function MyStack() {
         presentation: 'modal',
       }}/>
 
+      <Stack.Screen
+        name="DetalleFicha"
+        component={DetalleFicha}
+        options={{
+          title: "DETALLE DE FICHA",
+          headerTintColor: "white",
+          headerTitleAlign: "center",
+          headerStyle: { backgroundColor: "#E15252" },
+          presentation: 'modal',
+        }}
+      />
 
     </Stack.Navigator>
   );
