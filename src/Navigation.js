@@ -5,7 +5,9 @@ import Home from './screens/Home';
 import NuevaFicha from './screens/NuevaFicha';
 import ListaFichas from './screens/ListaFichas';
 import DetalleFicha from './screens/DetalleFicha'; // Importa el nuevo componente
-
+import MapScreenNative from './screens/MapScreen'; // Por defecto, asume que es nativo
+import MapScreenWeb from './screens/MapScreen.web';
+import { Platform } from 'react-native';
 
 const Stack = createStackNavigator();
 
@@ -55,6 +57,11 @@ function MyStack() {
           presentation: 'modal',
         }}
       />
+
+      <Stack.Screen 
+      name="MapScreen" 
+      component={Platform.OS === 'web' ? MapScreenWeb : MapScreenNative}
+      options={{ title: 'Mapa de Trampas' }} />
 
     </Stack.Navigator>
   );

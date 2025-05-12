@@ -1,6 +1,7 @@
-import React from 'react'
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native'
-import { useNavigation } from '@react-navigation/native'
+import React from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+
 
 export default function Home() {
   const navigation = useNavigation()
@@ -9,7 +10,7 @@ export default function Home() {
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <Text style={styles.title}>Menú Principal</Text>
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('MapScreen')}>
         <Text style={styles.buttonText}>🗺️ Mapa - Visualizar Trampas</Text>
       </TouchableOpacity>
 
