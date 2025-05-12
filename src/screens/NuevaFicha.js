@@ -77,202 +77,109 @@ export default function NuevaFicha() {
             {/* Sección 1: Datos de Ubicación */}
             <Text style={styles.sectionTitle}>Datos de Ubicación</Text>
             <View style={styles.row}>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Región:</Text>
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'region')} value={state.region} placeholder="Ingrese Región" />
                 </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'region')}
-                        value={state.region}
-                        placeholder="Ingrese Región"
-                    />
-                </View>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Oficina:</Text>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'oficina')}
-                        value={state.oficina}
-                        placeholder="Ingrese Oficina"
-                    />
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'oficina')} value={state.oficina} placeholder="Ingrese Oficina" />
                 </View>
             </View>
-
+    
             <View style={styles.row}>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Cuadrante:</Text>
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'cuadrante')} value={state.cuadrante} placeholder="Ingrese Cuadrante" />
                 </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'cuadrante')}
-                        value={state.cuadrante}
-                        placeholder="Ingrese Cuadrante"
-                    />
-                </View>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Subcuadrante:</Text>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'subcuadrante')}
-                        value={state.subcuadrante}
-                        placeholder="Ingrese Subcuadrante"
-                    />
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'subcuadrante')} value={state.subcuadrante} placeholder="Ingrese Subcuadrante" />
                 </View>
             </View>
-
+    
+            <View style={styles.fullWidthItem}>
+                <Text style={styles.label}>Ruta:</Text>
+                <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'ruta')} value={state.ruta} placeholder="Ingrese Ruta" />
+            </View>
+    
             <View style={styles.row}>
-                <View style={styles.labelContainer}>
-                    <Text style={styles.label}>Ruta:</Text>
-                </View>
-                <View style={styles.largeInputContainer}>
-                    <TextInput
-                        style={styles.largeInput}
-                        onChangeText={(value) => handleChangeText(value, 'ruta')}
-                        value={state.ruta}
-                        placeholder="Ingrese Ruta"
-                    />
-                </View>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>N° Trampa:</Text>
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'n_trampa')} value={state.n_trampa} placeholder="Ingrese N° Trampa" />
                 </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'n_trampa')}
-                        value={state.n_trampa}
-                        placeholder="Ingrese N° Trampa"
-                    />
-                </View>
+                {/* Podemos dejar este espacio vacío si queremos mantener la estructura de dos columnas */}
+                <View style={{ width: '48%' }} />
             </View>
-
-            <View style={styles.row}>
-                <View style={styles.labelContainer}>
-                    <Text style={styles.label}>Condición:</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={() => handleCheckboxChange('condicion_fija')}
-                >
+    
+            <View style={styles.checkboxRow}>
+                <Text style={styles.label}>Condición:</Text>
+                <TouchableOpacity style={styles.checkboxContainer} onPress={() => handleCheckboxChange('condicion_fija')}>
                     <View style={[styles.checkbox, state.condicion_fija && styles.checkboxActive]} />
                     <Text style={styles.checkboxLabel}>Fija</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={() => handleCheckboxChange('condicion_movil')}
-                >
+                <TouchableOpacity style={styles.checkboxContainer} onPress={() => handleCheckboxChange('condicion_movil')}>
                     <View style={[styles.checkbox, state.condicion_movil && styles.checkboxActive]} />
                     <Text style={styles.checkboxLabel}>Móvil</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.checkboxContainer}
-                    onPress={() => handleCheckboxChange('condicion_temporal')}
-                >
+                <TouchableOpacity style={styles.checkboxContainer} onPress={() => handleCheckboxChange('condicion_temporal')}>
                     <View style={[styles.checkbox, state.condicion_temporal && styles.checkboxActive]} />
                     <Text style={styles.checkboxLabel}>Temporal</Text>
                 </TouchableOpacity>
             </View>
-
-            <View style={styles.row}>
-                <View style={styles.labelContainer}>
-                    <Text style={styles.label}>Huso:</Text>
-                </View>
-                <TouchableOpacity
-                    style={styles.radioContainer}
-                    onPress={() => handleChangeText('18', 'huso')}
-                >
+    
+            <View style={styles.husoRow}>
+                <Text style={styles.label}>Huso:</Text>
+                <TouchableOpacity style={styles.radioContainer} onPress={() => handleChangeText('18', 'huso')}>
                     <View style={[styles.radio, state.huso === '18' && styles.radioActive]} />
                     <Text style={styles.radioLabel}>18°</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.radioContainer}
-                    onPress={() => handleChangeText('19', 'huso')}
-                >
+                <TouchableOpacity style={styles.radioContainer} onPress={() => handleChangeText('19', 'huso')}>
                     <View style={[styles.radio, state.huso === '19' && styles.radioActive]} />
                     <Text style={styles.radioLabel}>19°</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={styles.radioContainer}
-                    onPress={() => handleChangeText('12', 'huso')}
-                >
+                <TouchableOpacity style={styles.radioContainer} onPress={() => handleChangeText('12', 'huso')}>
                     <View style={[styles.radio, state.huso === '12' && styles.radioActive]} />
                     <Text style={styles.radioLabel}>12°</Text>
                 </TouchableOpacity>
             </View>
-
+    
             {/* Sección 2: Datos de Actividad */}
             <Text style={styles.sectionTitle}>Datos de Actividad</Text>
             <View style={styles.row}>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Fecha:</Text>
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'fecha')} value={state.fecha} placeholder="DD/MM/AAAA" />
                 </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'fecha')}
-                        value={state.fecha}
-                        placeholder="DD/MM/AAAA"
-                    />
-                </View>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Actividad:</Text>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'actividad')}
-                        value={state.actividad}
-                        placeholder="Ingrese Actividad"
-                    />
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'actividad')} value={state.actividad} placeholder="Ingrese Actividad" />
                 </View>
             </View>
-
+    
             <View style={styles.row}>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Prospector:</Text>
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'prospector')} value={state.prospector} placeholder="Ingrese Prospector" />
                 </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'prospector')}
-                        value={state.prospector}
-                        placeholder="Ingrese Prospector"
-                    />
-                </View>
-                <View style={styles.labelContainer}>
+                <View style={styles.item}>
                     <Text style={styles.label}>Localización:</Text>
-                </View>
-                <View style={styles.inputContainer}>
-                    <TextInput
-                        style={styles.input}
-                        onChangeText={(value) => handleChangeText(value, 'localizacion')}
-                        value={state.localizacion}
-                        placeholder="Ingrese Localización"
-                    />
+                    <TextInput style={styles.input} onChangeText={(value) => handleChangeText(value, 'localizacion')} value={state.localizacion} placeholder="Ingrese Localización" />
                 </View>
             </View>
-
-            <View style={styles.row}>
-                <View style={styles.labelContainer}>
-                    <Text style={styles.label}>Observaciones:</Text>
-                </View>
-                <View style={styles.largeInputContainer}>
-                    <TextInput
-                        style={styles.largeInput}
-                        onChangeText={(value) => handleChangeText(value, 'observaciones')}
-                        value={state.observaciones}
-                        placeholder="Ingrese Observaciones"
-                        multiline={true}  //habilito multiline
-                        numberOfLines={4} //defino cuantas lineas quiero que se vean por defecto
-                    />
-                </View>
+    
+            <View style={styles.fullWidthItem}>
+                <Text style={styles.label}>Observaciones:</Text>
+                <TextInput
+                    style={styles.largeInput}
+                    onChangeText={(value) => handleChangeText(value, 'observaciones')}
+                    value={state.observaciones}
+                    placeholder="Ingrese Observaciones"
+                    multiline={true}
+                    numberOfLines={4}
+                />
             </View>
-
+    
             <TouchableOpacity style={styles.button} onPress={saveFicha} disabled={loading}>
                 <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
             </TouchableOpacity>
@@ -282,21 +189,15 @@ export default function NuevaFicha() {
 
 const styles = StyleSheet.create({
     container: {
-        padding: 20,
-        paddingBottom: 40,
+        flexGrow: 1,
+        padding: 15,
+        paddingBottom: 30,
         backgroundColor: '#f0f0f0',
     },
-    title: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 20,
-        color: '#333',
-        textAlign: 'center',
-    },
     sectionTitle: {
-        fontSize: 20,
+        fontSize: 18,
         fontWeight: 'bold',
-        marginTop: 30,
+        marginTop: 20,
         marginBottom: 10,
         color: '#E15252',
         textAlign: 'left',
@@ -306,115 +207,116 @@ const styles = StyleSheet.create({
     },
     row: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'space-between',
+        marginBottom: 8,
         alignItems: 'center',
-        marginBottom: 15,
     },
-    labelContainer: {
-        flex: 0.4,
-        marginRight: 10,
+    item: {
+        width: '48%',
+        marginBottom: 8,
     },
     label: {
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: 14,
         color: '#444',
-    },
-    inputContainer: {
-        flex: 0.6,
-        backgroundColor: '#fff',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        marginRight: 10,
-        borderWidth: 1,
-        borderColor: '#ddd',
+        marginBottom: 3,
     },
     input: {
-        fontSize: 16,
-        color: '#333',
-        height: 40,
-    },
-    largeInputContainer: {
-        flex: 1,
         backgroundColor: '#fff',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        marginRight: 10,
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 7,
         borderWidth: 1,
         borderColor: '#ddd',
+        fontSize: 14,
+        color: '#333',
+        height: 38,
+    },
+    fullWidthItem: {
+        width: '100%',
+        marginBottom: 8,
     },
     largeInput: {
-        fontSize: 16,
+        backgroundColor: '#fff',
+        borderRadius: 6,
+        paddingHorizontal: 8,
+        paddingVertical: 7,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        fontSize: 14,
         color: '#333',
-        height: 40,
+        height: 70,
+        textAlignVertical: 'top',
+    },
+    checkboxRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     checkboxContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 20,
+        marginRight: 12,
+        marginLeft: 10, // Añadimos un margen izquierdo
     },
     checkbox: {
-        width: 22,
-        height: 22,
+        width: 16,
+        height: 16,
         borderWidth: 2,
         borderColor: '#555',
-        borderRadius: 5,
-        marginRight: 8,
+        borderRadius: 4,
+        marginRight: 5,
         justifyContent: 'center',
         alignItems: 'center',
     },
     checkboxActive: {
         backgroundColor: '#E15252',
-        borderRadius: 5,
+        borderRadius: 4,
     },
     checkboxLabel: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#333',
+    },
+    husoRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 8,
     },
     radioContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 15,
+        marginRight: 8,
+        marginLeft: 10, // Añadimos un margen izquierdo
     },
     radio: {
-        width: 18,
-        height: 18,
-        borderRadius: 9,
+        width: 12,
+        height: 12,
+        borderRadius: 6,
         borderWidth: 2,
         borderColor: '#555',
-        marginRight: 5,
+        marginRight: 4,
     },
     radioActive: {
         backgroundColor: '#E15252',
-        borderRadius: 9,
+        borderRadius: 6,
     },
     radioLabel: {
-        fontSize: 16,
+        fontSize: 14,
         color: '#333',
     },
     button: {
         backgroundColor: '#E15252',
-        paddingVertical: 15,
+        paddingVertical: 12,
         borderRadius: 10,
-        marginTop: 30,
+        marginTop: 15,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 5,
-        elevation: 5,
     },
     buttonText: {
         color: 'white',
-        fontSize: 18,
+        fontSize: 16,
         fontWeight: 'bold',
         textAlign: 'center',
-    },
-    inputMultiline: {
-        fontSize: 16,
-        color: '#333',
-        height: 80,
-        textAlignVertical: 'top',
     },
 });

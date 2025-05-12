@@ -56,33 +56,40 @@ export default function ListaFichas() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    padding: 20,
+      flex: 1,
+      backgroundColor: '#f4f4f4', // Un fondo gris muy claro
+      paddingHorizontal: 20,
+      paddingTop: 30,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-    textAlign: 'center',
+      fontSize: 32,
+      fontWeight: 'bold',
+      marginBottom: 35,
+      color: '#37474F', // Un gris azulado oscuro elegante
+      textAlign: 'center',
   },
   listItem: {
-    backgroundColor: '#f9f9f9',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ccc',
-    borderRadius: 8,
-    marginBottom: 10,
+      backgroundColor: '#FFFFFF',
+      paddingVertical: 20,
+      paddingHorizontal: 25,
+      borderRadius: 12, // Bordes más redondeados para suavidad
+      marginBottom: 18,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 }, // Sombra más pronunciada
+      shadowOpacity: 0.15,
+      shadowRadius: 6,
+      elevation: 4,
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      alignItems: 'center',
   },
   itemText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+      fontSize: 20,
+      fontWeight: '600', // Un peso ligeramente menor que 'bold' para elegancia
+      color: '#263238', // Otro tono gris azulado oscuro
   },
-  subItemText: {
-    fontSize: 14,
-    color: '#777',
-    marginTop: 5,
+  arrowIcon: {
+      fontSize: 24,
+      color: '#546E7A', // Un gris azulado más claro para el icono
   },
 });
