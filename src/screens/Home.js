@@ -22,6 +22,10 @@ export default function Home() {
         <Text style={styles.buttonText}>📄 Listado de Fichas</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GenerarAlertas')}>
+        <Text style={styles.buttonText}>🔔 Generar Alertas</Text>
+      </TouchableOpacity>
+
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
         <Text style={styles.buttonText}>📤 Solicitudes Enviadas</Text>
       </TouchableOpacity>
