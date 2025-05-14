@@ -38,7 +38,7 @@ export default function ListaFichas() {
   return (
     <ScrollView>
       <View style={styles.container}>
-        <Text style={styles.title}>Listado de Fichas</Text>
+        
         {lista.map((item) => (
           <TouchableOpacity
             key={item.id}
