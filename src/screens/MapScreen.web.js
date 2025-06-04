@@ -1,12 +1,12 @@
 // MapScreen.web.js
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Alert } from 'react-native'; // Agregamos Alert para notificaciones al usuario
+import { StyleSheet, View, Text, Alert } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
 // Importa Firebase y Firestore
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query } from 'firebase/firestore'; // Agregamos getDocs y query
 // Importa tu archivo de credenciales de Firebase.
 // ¡Asegúrate que la ruta sea correcta según la ubicación de tu archivo 'credenciales.js'!
 import appMoscasSAG from '../../credenciales';
@@ -38,12 +38,11 @@ function MapClickHandler({ setNewMarkerPosition }) {
     // Función asíncrona para guardar el marcador en Firestore
     const saveMarkerToFirestore = async (markerData) => {
         try {
-            // Añadimos el documento a la colección 'pins' en Firestore
             await addDoc(collection(db, 'pins'), {
                 lat: markerData.lat,
                 lng: markerData.lng,
                 description: markerData.description,
-                timestamp: new Date(), // Guarda el timestamp como un objeto Date, Firestore lo convierte automáticamente
+                timestamp: new Date(), // Guarda el timestamp como un objeto Date
             });
             Alert.alert('¡Éxito!', 'Pin guardado en Firestore correctamente.');
         } catch (error) {
@@ -56,41 +55,40 @@ function MapClickHandler({ setNewMarkerPosition }) {
     useEffect(() => {
         const handleMapClick = (e) => {
             const description = prompt("Ingresa una descripción para este pin:");
-            // Si el usuario ingresó una descripción y no canceló el prompt
             if (description) {
                 const newPinData = {
                     lat: e.latlng.lat,
                     lng: e.latlng.lng,
                     description: description
                 };
-                setNewMarkerPosition(newPinData); // Actualiza el estado local para mostrar el pin inmediatamente
-                saveMarkerToFirestore(newPinData); // Llama a la función para guardar en Firestore
+                setNewMarkerPosition(newPinData); // Agrega al estado local para visualización inmediata
+                saveMarkerToFirestore(newPinData); // Guarda en Firestore
             }
         };
 
-        map.on('click', handleMapClick); // Añade el listener de clic al mapa
+        map.on('click', handleMapClick);
 
-        // Función de limpieza que se ejecuta cuando el componente se desmonta
         return () => {
-            map.off('click', handleMapClick); // Remueve el listener para evitar fugas de memoria
+            map.off('click', handleMapClick);
         };
-    }, [map, setNewMarkerPosition]); // Dependencias del efecto
+    }, [map, setNewMarkerPosition]);
 
-    return null; // Este componente no renderiza nada visual
+    return null;
 }
 
 // Componente principal de la pantalla del mapa
 export default function MapScreenWeb() {
-    const [location, setLocation] = useState(null); // Estado para la ubicación actual del usuario
-    const [errorMsg, setErrorMsg] = useState(null); // Estado para mensajes de error de geolocalización
-    const [markers, setMarkers] = useState([]); // Estado para almacenar todos los pines agregados por el usuario
+    const [location, setLocation] = useState(null);
+    const [errorMsg, setErrorMsg] = useState(null);
+    const [markers, setMarkers] = useState([]); // Estado para todos los pines (existentes + nuevos)
+    const [loadingMarkers, setLoadingMarkers] = useState(true); // Nuevo estado para indicar si se están cargando los pines
 
     // Función para añadir un nuevo marcador al estado local 'markers'
     const addNewMarker = (markerData) => {
         setMarkers(prevMarkers => [...prevMarkers, markerData]);
     };
 
-    // Efecto para obtener la ubicación del usuario al cargar el componente
+    // useEffect para obtener la ubicación del usuario (sin cambios significativos)
     useEffect(() => {
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
@@ -107,9 +105,45 @@ export default function MapScreenWeb() {
         } else {
             setErrorMsg('La geolocalización no es compatible con este navegador.');
         }
-    }, []); // Se ejecuta solo una vez al montar el componente
+    }, []);
 
-    // Renderizado condicional basado en el estado
+    // >>> NUEVO useEffect para cargar los pines existentes desde Firestore al montar el componente <<<
+    useEffect(() => {
+        const fetchMarkers = async () => {
+            setLoadingMarkers(true); // Iniciar la carga
+            try {
+                const q = query(collection(db, 'pins')); // Crea una query para la colección 'pins'
+                const querySnapshot = await getDocs(q); // Obtiene los documentos
+
+                const fetchedMarkers = [];
+                querySnapshot.forEach((doc) => {
+                    // Por cada documento, obtenemos sus datos
+                    const data = doc.data();
+                    // Aseguramos que los campos lat, lng y description existan
+                    if (data.lat && data.lng && data.description) {
+                        fetchedMarkers.push({
+                            id: doc.id, // Es útil guardar el ID del documento de Firestore
+                            lat: data.lat,
+                            lng: data.lng,
+                            description: data.description,
+                            // Puedes también obtener el timestamp si lo necesitas para algo específico
+                            timestamp: data.timestamp ? data.timestamp.toDate() : null // Convertir Timestamp de Firestore a Date
+                        });
+                    }
+                });
+                setMarkers(fetchedMarkers); // Actualiza el estado con los pines cargados
+            } catch (error) {
+                console.error("Error al cargar los pines de Firestore: ", error);
+                Alert.alert('Error de Carga', 'No se pudieron cargar los pines existentes.');
+            } finally {
+                setLoadingMarkers(false); // Finalizar la carga
+            }
+        };
+
+        fetchMarkers(); // Llama a la función para cargar los pines
+    }, []); // El array vacío asegura que este efecto se ejecute solo una vez al montar
+
+    // Renderizado condicional para el estado de carga
     if (errorMsg) {
         return (
             <View style={styles.errorContainer}>
@@ -118,45 +152,42 @@ export default function MapScreenWeb() {
         );
     }
 
-    if (!location) {
+    if (!location || loadingMarkers) { // Muestra "Cargando mapa..." mientras se obtiene la ubicación O se cargan los marcadores
         return (
             <View style={styles.loadingContainer}>
-                <Text style={styles.loadingText}>Cargando mapa...</Text>
+                <Text style={styles.loadingText}>
+                    {loadingMarkers ? 'Cargando pines y mapa...' : 'Cargando mapa...'}
+                </Text>
             </View>
         );
     }
 
-    // Renderizado del mapa cuando la ubicación está disponible
     return (
         <View style={styles.container}>
             <MapContainer center={[location.latitude, location.longitude]} zoom={13} style={styles.map}>
-                {/* Capa de tiles de OpenStreetMap */}
                 <TileLayer
                     attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                     url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
                 />
 
-                {/* Marcador de la ubicación actual del usuario */}
                 <Marker position={[location.latitude, location.longitude]}>
                     <Popup>Estás aquí</Popup>
-                    <div style={styles.userMarker}></div> {/* Estilo personalizado para el marcador del usuario */}
+                    <div style={styles.userMarker}></div>
                 </Marker>
 
-                {/* Incluye el componente que maneja los clics para añadir nuevos marcadores */}
-                {/* Pasamos 'addNewMarker' como prop para actualizar el estado local */}
                 <MapClickHandler setNewMarkerPosition={addNewMarker} />
 
-                {/* Mapeamos y renderizamos todos los marcadores guardados en el estado 'markers' */}
-                {markers.map((marker, index) => (
-                    <Marker
-                        key={index} // La 'key' ayuda a React a identificar elementos en listas
-                        position={{ lat: marker.lat, lng: marker.lng }}
-                        icon={customColoredPinIcon}
-                    >
+                {/* Mapeamos y renderizamos todos los marcadores en el estado 'markers' */}
+                {markers.map((marker) => (
+                    // Usamos marker.id como key si lo recuperamos de Firestore, sino index (menos ideal)
+                    <Marker key={marker.id || `${marker.lat}-${marker.lng}-${marker.description}`}
+                            position={{ lat: marker.lat, lng: marker.lng }}
+                            icon={customColoredPinIcon}>
                         <Popup>
                             **{marker.description}**
                             <br />
                             Lat: {marker.lat.toFixed(4)}, Lng: {marker.lng.toFixed(4)}
+                            {marker.timestamp && <><br />Guardado: {marker.timestamp.toLocaleDateString()}</>}
                         </Popup>
                     </Marker>
                 ))}
@@ -166,19 +197,18 @@ export default function MapScreenWeb() {
     );
 }
 
-// --- Estilos para los componentes de React Native ---
 const styles = StyleSheet.create({
     container: {
         flex: 1,
         width: '100%',
         height: '100%',
-        backgroundColor: '#f0f0f0', // Fondo gris claro
+        backgroundColor: '#f0f0f0',
     },
     map: {
         width: '100%',
         height: '100%',
-        borderRadius: 10, // Bordes redondeados para el mapa
-        overflow: 'hidden', // Asegura que los bordes redondeados se apliquen correctamente
+        borderRadius: 10,
+        overflow: 'hidden',
     },
     loadingContainer: {
         flex: 1,
@@ -206,9 +236,9 @@ const styles = StyleSheet.create({
         width: 16,
         height: 16,
         borderRadius: 8,
-        backgroundColor: '#E15252', // Color primario para el marcador del usuario
+        backgroundColor: '#E15252',
         borderWidth: 2,
         borderColor: 'white',
-        boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)', // Sombra sutil
+        boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)',
     },
 });
