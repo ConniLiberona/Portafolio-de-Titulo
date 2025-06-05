@@ -23,10 +23,6 @@ export default function Home() {
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
-        <Text style={styles.buttonText}>📤 Solicitudes Enviadas</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
         <Text style={styles.buttonText}>⚙️ Configuración</Text>
       </TouchableOpacity>
     </ScrollView>
