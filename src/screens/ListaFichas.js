@@ -1,95 +1,126 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { getFirestore, collection, getDocs, doc, query, orderBy } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
-import { useNavigation } from '@react-navigation/native'; // Importa useNavigation
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 const db = getFirestore(appMoscasSAG);
 
 export default function ListaFichas() {
-  const [lista, setLista] = useState([]);
-  const navigation = useNavigation(); // Obtén la función navigation
+  const [fichas, setFichas] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigation = useNavigation();
 
-  useEffect(() => {
-    const getLista = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, 'fichas'));
-        const docs = [];
-        querySnapshot.forEach((doc) => {
-          const { id_ficha, region } = doc.data();
-          docs.push({
-            id: doc.id,
-            id_ficha
-          });
-        });
-        setLista(docs);
-      } catch (error) {
-        console.log(error);
-      }
-    };
-    getLista();
-  }, []);
-
-  const handleFichaPress = (fichaId) => {
-    // Navega a la pantalla de detalles de la ficha, pasando el ID
-    navigation.navigate('DetalleFicha', { fichaId: fichaId });
+  // Función para cargar las fichas de Firestore
+  const fetchFichas = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fichasCollection = collection(db, 'fichas');
+      // Opcional: Ordena por n_trampa ascendente para una lista consistente
+      const q = query(fichasCollection, orderBy('n_trampa', 'asc'));
+      const fichasSnapshot = await getDocs(q);
+      const fichasList = fichasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setFichas(fichasList);
+    } catch (e) {
+      setError('Error al cargar las fichas.');
+      console.error("Error fetching documents: ", e);
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Usa useFocusEffect para recargar los datos cada vez que la pantalla se enfoca
+  useFocusEffect(
+    useCallback(() => {
+      fetchFichas();
+      // No se necesita un retorno aquí a menos que tengas suscripciones en tiempo real
+      return () => {
+        // Limpieza si fuera necesario, por ejemplo, cancelar listeners de Firestore
+      };
+    }, []) // El array vacío asegura que el efecto solo se cree una vez
+  );
+
+  // Función para manejar la navegación al detalle de una ficha
+  const handlePressFicha = (fichaId, currentFichaData) => {
+    navigation.navigate('DetalleFicha', { fichaId: fichaId, currentFichaData: currentFichaData });
+  };
+
+  if (loading) {
+    return <Text style={styles.messageText}>Cargando fichas...</Text>;
+  }
+
+  if (error) {
+    return <Text style={styles.messageText}>Error: {error}</Text>;
+  }
+
+  if (fichas.length === 0) {
+    return <Text style={styles.messageText}>No hay fichas registradas.</Text>;
+  }
+
   return (
-    <ScrollView>
-      <View style={styles.container}>
-        <Text style={styles.title}>Listado de Fichas</Text>
-        {lista.map((item) => (
+    <View style={styles.container}>
+      <Text style={styles.title}>Listado de Fichas</Text>
+      <FlatList
+        data={fichas}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
           <TouchableOpacity
-            key={item.id}
-            style={styles.listItem}
-            onPress={() => handleFichaPress(item.id)} // Llama a la función al presionar
+            style={styles.fichaItem}
+            onPress={() => handlePressFicha(item.id, item)}
           >
-            <Text style={styles.itemText}>{item.id_ficha}</Text>
-            <Text style={styles.subItemText}>{item.region}</Text>
+            <Text style={styles.fichaText}>N° Trampa: {item.n_trampa}</Text>
+            {/* Puedes añadir más detalles si lo deseas */}
+            {/* <Text style={styles.fichaDetail}>Ruta: {item.ruta}</Text> */}
           </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
+        )}
+      />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-      flex: 1,
-      backgroundColor: '#f4f4f4', // Un fondo gris muy claro
-      paddingHorizontal: 20,
-      paddingTop: 30,
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#f4f4f4',
   },
   title: {
-      fontSize: 32,
-      fontWeight: 'bold',
-      marginBottom: 35,
-      color: '#37474F', // Un gris azulado oscuro elegante
-      textAlign: 'center',
+    fontSize: 26,
+    fontWeight: 'bold',
+    marginBottom: 25,
+    color: '#E15252',
+    textAlign: 'center',
   },
-  listItem: {
-      backgroundColor: '#FFFFFF',
-      paddingVertical: 20,
-      paddingHorizontal: 25,
-      borderRadius: 12, // Bordes más redondeados para suavidad
-      marginBottom: 18,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 4 }, // Sombra más pronunciada
-      shadowOpacity: 0.15,
-      shadowRadius: 6,
-      elevation: 4,
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      alignItems: 'center',
+  fichaItem: {
+    backgroundColor: '#fff',
+    padding: 18,
+    borderRadius: 10,
+    marginBottom: 15,
+    borderLeftWidth: 5,
+    borderLeftColor: '#E15252',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  itemText: {
-      fontSize: 20,
-      fontWeight: '600', // Un peso ligeramente menor que 'bold' para elegancia
-      color: '#263238', // Otro tono gris azulado oscuro
+  fichaText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  arrowIcon: {
-      fontSize: 24,
-      color: '#546E7A', // Un gris azulado más claro para el icono
+  fichaDetail: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 5,
+  },
+  messageText: {
+    textAlign: 'center',
+    marginTop: 50,
+    fontSize: 16,
+    color: '#666',
   },
 });

@@ -7,6 +7,7 @@ import ListaFichas from './screens/ListaFichas';
 import DetalleFicha from './screens/DetalleFicha'; // Importa el nuevo componente
 import MapScreenNative from './screens/MapScreen'; // Por defecto, asume que es nativo
 import MapScreenWeb from './screens/MapScreen.web';
+import EditarFicha from './screens/EditarFicha'; // ¡Necesitas crear este componente!
 import { Platform } from 'react-native';
 
 const Stack = createStackNavigator();
@@ -62,6 +63,18 @@ function MyStack() {
       name="MapScreen" 
       component={Platform.OS === 'web' ? MapScreenWeb : MapScreenNative}
       options={{ title: 'Mapa de Trampas' }} />
+
+      <Stack.Screen
+        name="EditarFicha"
+        component={EditarFicha}
+        options={{
+          title: "EDITAR FICHA",
+          headerTintColor: "white",
+          headerTitleAlign: "center",
+          headerStyle: { backgroundColor: "#E15252" },
+          presentation: 'modal',
+        }}
+      />
 
     </Stack.Navigator>
   );

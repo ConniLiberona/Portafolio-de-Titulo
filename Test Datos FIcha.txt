@@ -1,0 +1,15 @@
+
+// Datos Ficha Test
+
+Region: 13
+Oficina: Metropolitana
+Cuadrante: 4476
+Subcuadrante: 01
+Ruta: Las Condes 1
+Nº Trampa: 131263101
+Condicion: Movil
+Huso: 19
+Fecha: Automatica (revisar)
+Actividad: x
+Procpectoria:CZ AT
+Localizacion: A5
