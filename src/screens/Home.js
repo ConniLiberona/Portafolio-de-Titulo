@@ -22,7 +22,17 @@ export default function Home() {
         <Text style={styles.buttonText}>📄 Listado de Fichas</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}>
+      {/* Nuevo botón: Gestión de Usuarios */}
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GestionUsuarios')}>
+        <Text style={styles.buttonText}>👥 Gestión de Usuarios</Text>
+      </TouchableOpacity>
+
+      {/* Nuevo botón: Papelera */}
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Papelera')}>
+        <Text style={styles.buttonText}>🗑️ Papelera</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}> {/* Asume que 'Configuracion' será el nombre de la ruta */}
         <Text style={styles.buttonText}>⚙️ Configuración</Text>
       </TouchableOpacity>
     </ScrollView>
