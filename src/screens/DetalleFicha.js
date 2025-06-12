@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, Alert, TouchableOpacity, Platform } from 'react-native';
-import { getFirestore, doc, getDoc, deleteDoc } from 'firebase/firestore';
+import { StyleSheet, Text, View, ScrollView, Alert, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
+import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
 import { useNavigation } from '@react-navigation/native';
 
@@ -9,7 +9,6 @@ import pdfMake from 'pdfmake/build/pdfmake';
 import vfsFonts from 'pdfmake/build/vfs_fonts';
 pdfMake.vfs = vfsFonts.vfs;
 import htmlToPdfmake from 'html-to-pdfmake';
-
 
 const db = getFirestore(appMoscasSAG);
 
@@ -29,9 +28,13 @@ export default function DetalleFicha({ route }) {
         const docRef = doc(db, 'fichas', fichaId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setFicha(docSnap.data());
+          const fichaData = docSnap.data();
+          setFicha(fichaData);
+          console.log('Datos de la ficha cargados:', fichaData);
+          console.log('URL de la imagen (desde ficha.imageUrl):', fichaData.imageUrl);
         } else {
           setError('Ficha no encontrada');
+          console.log('Ficha no encontrada para ID:', fichaId);
         }
       } catch (e) {
         setError('Error al cargar la ficha');
@@ -48,15 +51,15 @@ export default function DetalleFicha({ route }) {
     let confirmDeletion = false;
 
     if (Platform.OS === 'web') {
-      confirmDeletion = window.confirm("¿Estás seguro de que quieres eliminar esta ficha?");
+      confirmDeletion = window.confirm("¿Estás seguro de que quieres mover esta ficha a la papelera?");
     } else {
       await new Promise((resolve) => {
         Alert.alert(
-          "Eliminar Ficha",
-          "¿Estás seguro de que quieres eliminar esta ficha?",
+          "Mover a Papelera",
+          "¿Estás seguro de que quieres mover esta ficha a la papelera?",
           [
             { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-            { text: "Eliminar", onPress: () => resolve(true), style: "destructive" }
+            { text: "Mover", onPress: () => resolve(true), style: "destructive" }
           ],
           { cancelable: true, onDismiss: () => resolve(false) }
         );
@@ -70,13 +73,17 @@ export default function DetalleFicha({ route }) {
     }
 
     try {
-      console.log('Intentando eliminar ficha con ID:', fichaId);
-      await deleteDoc(doc(db, 'fichas', fichaId));
-      Alert.alert("Éxito", "Ficha eliminada correctamente.");
+      console.log('Intentando mover a papelera ficha con ID:', fichaId);
+      const fichaRef = doc(db, 'fichas', fichaId);
+      await updateDoc(fichaRef, {
+        deleted: true,
+        deletedAt: serverTimestamp()
+      });
+      Alert.alert("Éxito", "Ficha movida a la papelera correctamente.");
       navigation.goBack();
     } catch (e) {
-      Alert.alert("Error", `No se pudo eliminar la ficha: ${e.message}`);
-      console.error("Error al eliminar ficha:", e);
+      Alert.alert("Error", `No se pudo mover la ficha a la papelera: ${e.message}`);
+      console.error("Error al mover ficha a papelera:", e);
     }
   };
 
@@ -85,6 +92,9 @@ export default function DetalleFicha({ route }) {
   };
 
   const formatValue = (key, value) => {
+    if (value === null || typeof value === 'undefined' || value === '') {
+      return 'N/A';
+    }
     if (key === 'fecha' && value && typeof value.toDate === 'function') {
       const date = value.toDate();
       return date.toLocaleDateString('es-ES', {
@@ -93,18 +103,17 @@ export default function DetalleFicha({ route }) {
         day: 'numeric',
       });
     }
+    if (key === 'condiciones_trampa') {
+      let condiciones = [];
+      if (ficha.condicion_fija) condiciones.push('Fija');
+      if (ficha.condicion_movil) condiciones.push('Móvil');
+      if (ficha.condicion_temporal) condiciones.push('Temporal');
+      return condiciones.join(', ') || 'N/A';
+    }
     if (typeof value === 'boolean') {
       return value ? 'Sí' : 'No';
     }
-    if (value === null || typeof value === 'undefined' || value === '') {
-        return 'N/A';
-    }
     return value.toString();
-  };
-
-  const formatKey = (key) => {
-    return key.replace(/_/g, ' ')
-               .replace(/\b\w/g, char => char.toUpperCase());
   };
 
   const handleExportPdf = () => {
@@ -122,7 +131,7 @@ export default function DetalleFicha({ route }) {
       <p><strong>Cuadrante:</strong> ${formatValue('cuadrante', ficha.cuadrante)}</p>
       <p><strong>Subcuadrante:</strong> ${formatValue('subcuadrante', ficha.subcuadrante)}</p>
       <p><strong>Ruta:</strong> ${formatValue('ruta', ficha.ruta)}</p>
-      <p><strong>Condición:</strong> ${formatValue('condicion_fija', ficha.condicion_fija ? 'Fija ' : '')}${formatValue('condicion_movil', ficha.condicion_movil ? 'Móvil ' : '')}${formatValue('condicion_temporal', ficha.condicion_temporal ? 'Temporal ' : '')}</p>
+      <p><strong>Condición:</strong> ${formatValue('condiciones_trampa', null)}</p>
       <p><strong>Huso:</strong> ${formatValue('huso', ficha.huso)}</p>
       <h2>Datos de Actividad</h2>
       <p><strong>Fecha:</strong> ${formatValue('fecha', ficha.fecha)}</p>
@@ -130,10 +139,13 @@ export default function DetalleFicha({ route }) {
       <p><strong>Prospector:</strong> ${formatValue('prospector', ficha.prospector)}</p>
       <p><strong>Localización:</strong> ${formatValue('localizacion', ficha.localizacion)}</p>
       <p><strong>Observaciones:</strong> ${formatValue('observaciones', ficha.observaciones)}</p>
+      ${ficha.imageUrl ? `<p><strong>Imagen:</strong> <img src="${ficha.imageUrl}" width="200" /></p>` : ''}
       <p><em>Generado el: ${new Date().toLocaleDateString('es-ES')}</em></p>
     `;
 
-    const content = htmlToPdfmake(htmlContent);
+    const content = htmlToPdfmake(htmlContent, {
+      imagesByReference: true
+    });
 
     const docDefinition = {
       content: content,
@@ -149,17 +161,21 @@ export default function DetalleFicha({ route }) {
     };
 
     try {
-        pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
-        Alert.alert('Éxito', 'PDF generado y descargado.');
+      pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
+      Alert.alert('Éxito', 'PDF generado y descargado.');
     } catch (pdfError) {
-        Alert.alert('Error', `Error al generar el PDF: ${pdfError.message || 'Error desconocido'}`);
-        console.error('Error generando PDF:', pdfError);
+      Alert.alert('Error', `Error al generar el PDF: ${pdfError.message || 'Error desconocido'}`);
+      console.error('Error generando PDF:', pdfError);
     }
   };
 
-
   if (loading) {
-    return <Text style={styles.messageText}>Cargando detalles de la ficha...</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#E15252" />
+        <Text style={styles.messageText}>Cargando detalles de la ficha...</Text>
+      </View>
+    );
   }
 
   if (error) {
@@ -173,34 +189,100 @@ export default function DetalleFicha({ route }) {
   return (
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Detalle de Ficha</Text>
-      {Object.entries(ficha).map(([key, value]) => (
-        <View key={key} style={styles.detailItem}>
-          <Text style={styles.label}>{formatKey(key)}:</Text>
-          <Text style={styles.value}>{formatValue(key, value)}</Text>
+
+      {/* Número de Trampa */}
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>N° Trampa:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('n_trampa', ficha.n_trampa)}</Text>
+      </View>
+
+      {/* Datos de Ubicación */}
+      <Text style={styles.sectionTitle}>Datos de Ubicación</Text>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Región:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('region', ficha.region)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Oficina:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('oficina', ficha.oficina)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Cuadrante:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('cuadrante', ficha.cuadrante)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Subcuadrante:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('subcuadrante', ficha.subcuadrante)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Ruta:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('ruta', ficha.ruta)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Condición:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('condiciones_trampa', null)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Huso:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('huso', ficha.huso)}</Text>
+      </View>
+
+      {/* Datos de Actividad */}
+      <Text style={styles.sectionTitle}>Datos de Actividad</Text>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Fecha:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('fecha', ficha.fecha)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Actividad:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('actividad', ficha.actividad)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Prospector:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('prospector', ficha.prospector)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Localización:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('localizacion', ficha.localizacion)}</Text>
+      </View>
+      <View style={styles.formGroup}>
+        <Text style={styles.label}>Observaciones:</Text>
+        <Text style={styles.valueDisplay}>{formatValue('observaciones', ficha.observaciones)}</Text>
+      </View>
+
+      {ficha.imageUrl && (
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Imagen de la Ficha:</Text>
+          <Image
+            source={{ uri: ficha.imageUrl }}
+            style={styles.fichaImage}
+            onError={(e) => console.log('Error cargando imagen de la ficha:', e.nativeEvent.error)}
+            onLoad={() => console.log('Imagen de la ficha cargada con éxito!')}
+          />
         </View>
-      ))}
+      )}
 
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={[styles.button, styles.modifyButton]}
           onPress={handleModifyFicha}
-          activeOpacity={0.7} // Efecto de opacidad al presionar
+          activeOpacity={0.7}
         >
           <Text style={styles.buttonText}>Modificar Ficha</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.button, styles.deleteButton]}
           onPress={handleDeleteFicha}
-          activeOpacity={0.7} // Efecto de opacidad al presionar
+          activeOpacity={0.7}
         >
-          <Text style={styles.buttonText}>Eliminar Ficha</Text>
+          <Text style={styles.buttonText}>Mover a Papelera</Text>
         </TouchableOpacity>
       </View>
 
       <TouchableOpacity
         style={[styles.button, styles.exportPdfButton]}
         onPress={handleExportPdf}
-        activeOpacity={0.7} // Efecto de opacidad al presionar
+        activeOpacity={0.7}
       >
         <Text style={styles.buttonText}>Exportar a PDF 📄</Text>
       </TouchableOpacity>
@@ -214,6 +296,12 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: '#f4f4f4',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f4f4f4',
+  },
   title: {
     fontSize: 26,
     fontWeight: 'bold',
@@ -221,29 +309,38 @@ const styles = StyleSheet.create({
     color: '#37474F',
     textAlign: 'center',
   },
-  detailItem: {
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#455A64',
+    marginTop: 25,
     marginBottom: 15,
-    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#CFD8DC',
+    paddingBottom: 5,
+  },
+  formGroup: {
+    marginBottom: 15,
     backgroundColor: '#fff',
-    borderRadius: 10,
+    padding: 15,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#ddd',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 2,
   },
   label: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#607D8B',
-    marginBottom: 4,
-    textTransform: 'capitalize',
+    marginBottom: 5,
   },
-  value: {
+  valueDisplay: {
     fontSize: 16,
-    color: '#424242',
+    color: '#333',
   },
   messageText: {
     textAlign: 'center',
@@ -258,39 +355,49 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   button: {
-    paddingVertical: 14, // Aumentar un poco el padding vertical
-    paddingHorizontal: 28, // Aumentar un poco el padding horizontal
-    borderRadius: 10, // Un poco más redondeado
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 10,
     minWidth: 140,
     alignItems: 'center',
-    justifyContent: 'center', // Centrar texto verticalmente
-    // Sombras más suaves y consistentes
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
-      height: 3, // Mayor profundidad
+      height: 3,
     },
-    shadowOpacity: 0.2, // Más sutil
-    shadowRadius: 4.65, // Mayor difuminado
-    elevation: 6, // Equivalente para Android
+    shadowOpacity: 0.2,
+    shadowRadius: 4.65,
+    elevation: 6,
   },
   modifyButton: {
-    backgroundColor: '#FFC107', // Amarillo
+    backgroundColor: '#FFC107',
   },
   deleteButton: {
-    backgroundColor: '#D32F2F', // Rojo oscuro
+    backgroundColor: '#D32F2F',
   },
   exportPdfButton: {
-    backgroundColor: '#6c757d', // ¡CAMBIO AQUÍ a un gris oscuro!
-    marginTop: 15, // Un poco más de margen superior
+    backgroundColor: '#6c757d',
+    marginTop: 15,
     width: '100%',
   },
   buttonText: {
     color: 'white',
     fontSize: 16,
-    fontWeight: '700', // Un poco más audaz para el texto
-    textShadowColor: 'rgba(0, 0, 0, 0.1)', // Sombra sutil para el texto
+    fontWeight: '700',
+    textShadowColor: 'rgba(0, 0, 0, 0.1)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
+  fichaImage: {
+    width: '100%',
+    height: 250,
+    resizeMode: 'contain',
+    marginTop: 10,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  // Se eliminan los estilos testImageContainer, testImageLabel, testImageStyle, testImageStatus
+  // ya que la imagen de prueba y su envoltorio han sido eliminados del JSX.
 });
