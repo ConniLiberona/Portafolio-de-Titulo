@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,10 +8,15 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  Image,
+  Button,
+  ActivityIndicator, // <--- Importar ActivityIndicator para el estado de carga
 } from 'react-native';
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
-import appMoscasSAG from '../../credenciales'; // Asegúrate que la ruta a tus credenciales es correcta
+import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import appMoscasSAG from '../../credenciales';
 import { useNavigation } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 
 // Importaciones condicionales para el DatePicker
 let DatePickerWeb;
@@ -19,13 +24,14 @@ let DateTimePickerNative;
 
 if (Platform.OS === 'web') {
   DatePickerWeb = require('react-datepicker').default;
-  // Importa el CSS aquí para web.
   require('react-datepicker/dist/react-datepicker.css');
 } else {
   DateTimePickerNative = require('@react-native-community/datetimepicker').default;
 }
 
+// Inicializar Firestore y Storage usando la instancia de Firebase
 const db = getFirestore(appMoscasSAG);
+const storage = getStorage(appMoscasSAG);
 
 export default function NuevaFicha() {
   const initialState = {
@@ -38,8 +44,8 @@ export default function NuevaFicha() {
     condicion_fija: false,
     condicion_movil: false,
     condicion_temporal: false,
-    huso: '19', // Valor por defecto
-    fecha: new Date(), // Inicializar con la fecha actual como objeto Date
+    huso: '19',
+    fecha: new Date(),
     actividad: '',
     prospector: '',
     localizacion: '',
@@ -50,10 +56,88 @@ export default function NuevaFicha() {
   const [loading, setLoading] = useState(false);
   const navigation = useNavigation();
 
-  // Estado para el DatePicker nativo
+  const [image, setImage] = useState(null);
+
   const [showNativeDatePicker, setShowNativeDatePicker] = useState(false);
-  // Estado para controlar si el DatePicker web está abierto (para el margen dinámico)
   const [isDatePickerWebOpen, setIsDatePickerWebOpen] = useState(false);
+
+  useEffect(() => {
+    console.log('El estado de la imagen ha cambiado a:', image ? 'Imagen seleccionada' : 'No hay imagen');
+  }, [image]);
+
+  const pickImage = async () => {
+    console.log('--- Inicando proceso de selección de imagen ---');
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      console.log('Estado del permiso de galería:', status);
+      if (status !== 'granted') {
+        Alert.alert('Permiso Requerido', 'Necesitamos permiso para acceder a tu galería para subir imágenes.');
+        console.warn('Permiso de galería no concedido.');
+        return;
+      }
+    }
+
+    try {
+      let result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Usar MediaTypeOptions.Images
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 0.5,
+      });
+
+      console.log('Resultado completo de ImagePicker:', result);
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const selectedImageUri = result.assets[0].uri;
+        console.log('Imagen seleccionada URI:', selectedImageUri);
+        setImage(selectedImageUri);
+      } else if (result.canceled) {
+        console.log('Selección de imagen cancelada por el usuario.');
+        setImage(null); // Asegúrate de limpiar la imagen si se cancela
+      } else {
+        console.warn('Selección de imagen fallida o sin assets.');
+        setImage(null);
+      }
+    } catch (error) {
+      console.error('Error al intentar seleccionar la imagen:', error);
+      Alert.alert('Error', 'Ocurrió un error al intentar abrir el selector de imágenes.');
+      setImage(null);
+    }
+    console.log('--- Fin del proceso de selección de imagen ---');
+  };
+
+  const uploadImage = async (uri) => {
+    console.log('--- Iniciando subida de imagen a Firebase Storage ---');
+    console.log('URI de la imagen a subir:', uri);
+    try {
+      if (!uri) {
+        console.warn('URI de imagen no proporcionada para la subida.');
+        Alert.alert('Error de subida', 'No se encontró la imagen para subir.');
+        return null;
+      }
+
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      console.log('Blob de imagen creado exitosamente.');
+
+      const fileName = `ficha_image_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+      const storageRef = ref(storage, `fichas_images/${fileName}`);
+      console.log('Referencia de Storage creada:', storageRef.fullPath);
+
+      console.log('Subiendo bytes de la imagen...');
+      const snapshot = await uploadBytes(storageRef, blob);
+      console.log('Bytes subidos correctamente. Metadatos del snapshot:', snapshot.metadata);
+
+      const downloadURL = await getDownloadURL(snapshot.ref);
+      console.log('URL de descarga de la imagen obtenida:', downloadURL);
+      return downloadURL;
+    } catch (error) {
+      console.error('Error detallado al subir la imagen a Firebase Storage:', error);
+      Alert.alert('Error de Subida', `No se pudo subir la imagen. Detalles: ${error.message || 'Error desconocido'}. Por favor, revisa las reglas de seguridad de Firebase Storage.`);
+      return null;
+    }
+    console.log('--- Fin del proceso de subida de imagen ---');
+  };
 
   const handleChangeText = (value, name) => {
     setState({ ...state, [name]: value });
@@ -66,12 +150,10 @@ export default function NuevaFicha() {
     }));
   };
 
-  // Función para mostrar el DatePicker nativo
   const handleShowNativeDatePicker = () => {
     setShowNativeDatePicker(true);
   };
 
-  // Función para el cambio de fecha del DatePicker nativo
   const onNativeDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || state.fecha;
     setShowNativeDatePicker(Platform.OS === 'ios');
@@ -79,86 +161,125 @@ export default function NuevaFicha() {
       ...prevState,
       fecha: currentDate,
     }));
+    console.log('Fecha nativa seleccionada:', currentDate.toLocaleDateString());
   };
 
-  // Función para el cambio de fecha del DatePicker web (directamente el objeto Date)
   const onWebDateChange = (date) => {
     if (date instanceof Date && !isNaN(date.getTime())) {
       setState((prevState) => ({
         ...prevState,
         fecha: date,
       }));
+      console.log('Fecha web seleccionada:', date.toLocaleDateString());
     } else {
       console.warn("Fecha seleccionada no válida en web:", date);
     }
-    setIsDatePickerWebOpen(false); // Cierra el calendario después de seleccionar
+    setIsDatePickerWebOpen(false);
   };
 
   const saveFicha = async () => {
-    // --- Inicio de la Validación de Campos ---
-    // Validar campos de texto y numéricos como obligatorios
-    if (
-        !state.region.trim() || isNaN(Number(state.region)) ||
-        !state.oficina.trim() ||
-        !state.cuadrante.trim() || isNaN(Number(state.cuadrante)) ||
-        !state.subcuadrante.trim() || isNaN(Number(state.subcuadrante)) ||
-        !state.ruta.trim() ||
-        !state.n_trampa.trim() || isNaN(Number(state.n_trampa)) ||
-        !state.actividad.trim() ||
-        !state.prospector.trim() ||
-        !state.localizacion.trim()
-    ) {
-      Alert.alert('Error', 'Por favor, complete todos los campos obligatorios (los campos numéricos deben ser números válidos).');
+    console.log('--- Iniciando proceso de guardado de ficha ---');
+    console.log('Estado actual de la ficha antes de validación:', state);
+    console.log('Imagen seleccionada antes de validación:', image);
+
+    // Validación de Campos
+    const numericFields = ['region', 'cuadrante', 'subcuadrante', 'n_trampa'];
+    for (const field of numericFields) {
+      if (!state[field].trim() || isNaN(Number(state[field]))) {
+        Alert.alert('Error de Validación', `El campo "${field}" es obligatorio y debe ser un número válido.`);
+        console.warn(`Validación fallida: Campo "${field}" inválido.`);
+        return;
+      }
+    }
+
+    const textFields = ['oficina', 'ruta', 'actividad', 'prospector', 'localizacion'];
+    for (const field of textFields) {
+      if (!state[field].trim()) {
+        Alert.alert('Error de Validación', `El campo "${field}" es obligatorio.`);
+        console.warn(`Validación fallida: Campo "${field}" vacío.`);
+        return;
+      }
+    }
+
+    if (!state.fecha || !(state.fecha instanceof Date) || isNaN(state.fecha.getTime())) {
+      Alert.alert('Error de Validación', 'Por favor, seleccione una fecha válida.');
+      console.warn('Validación fallida: Fecha inválida.');
       return;
     }
 
-    // Validar la fecha por separado para un mensaje más específico si falla
-    if (!state.fecha || !(state.fecha instanceof Date) || isNaN(state.fecha.getTime())) {
-        Alert.alert('Error', 'Por favor, seleccione una fecha válida.');
-        return;
+    if (!image) {
+      Alert.alert('Advertencia', 'Por favor, selecciona una imagen antes de guardar la ficha.');
+      console.warn('Validación fallida: No hay imagen seleccionada.');
+      return;
     }
-    // --- Fin de la Validación de Campos ---
 
     setLoading(true);
+    Alert.alert('Guardando...', 'Subiendo imagen y guardando ficha, por favor espera.', [{ text: 'OK', onPress: () => console.log('Alerta de guardado cerrada.') }]);
+    console.log('Estado de carga activado.');
+
+    let imageUrl = null;
+    try {
+      imageUrl = await uploadImage(image);
+      if (!imageUrl) {
+        console.error('La URL de la imagen es nula después de intentar subirla.');
+        Alert.alert('Error', 'No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+        setLoading(false);
+        return;
+      }
+      console.log('URL de la imagen para la ficha:', imageUrl);
+    } catch (uploadError) {
+      console.error('Error crítico al subir la imagen en saveFicha:', uploadError);
+      Alert.alert('Error', 'Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
+      setLoading(false);
+      return;
+    }
 
     try {
-      // Prepara los datos para guardar, convirtiendo los campos numéricos a tipo Number
       const dataToSave = { ...state };
       dataToSave.region = Number(dataToSave.region);
       dataToSave.cuadrante = Number(dataToSave.cuadrante);
       dataToSave.subcuadrante = Number(dataToSave.subcuadrante);
       dataToSave.n_trampa = Number(dataToSave.n_trampa);
+      dataToSave.imageUrl = imageUrl;
+      dataToSave.createdAt = Timestamp.fromDate(new Date()); // Añadir timestamp de creación
 
-      console.log("Datos a guardar en Firestore:", {
-        ...dataToSave, // Loguea los datos ya convertidos
-        // Opcional: Si quieres ver cómo Firestore lo interpretaría como Timestamp, puedes añadirlo así:
-        fecha: dataToSave.fecha instanceof Date && !isNaN(dataToSave.fecha.getTime())
-          ? Timestamp.fromDate(dataToSave.fecha)
-          : null,
-      });
+      // Convertir la fecha a un Timestamp de Firestore
+      if (dataToSave.fecha instanceof Date && !isNaN(dataToSave.fecha.getTime())) {
+        dataToSave.fecha = Timestamp.fromDate(dataToSave.fecha);
+      } else {
+        console.warn('La fecha no es un objeto Date válido o está vacía, no se convertirá a Timestamp.');
+        delete dataToSave.fecha; // Eliminar la fecha inválida para evitar errores en Firestore
+      }
 
-      // El SDK de Firestore convertirá automáticamente el objeto Date (dataToSave.fecha) a Timestamp.
+      console.log("Preparando datos para guardar en Firestore:", dataToSave);
+
       const docRef = await addDoc(collection(db, 'fichas'), dataToSave);
 
       console.log('Documento escrito con ID: ', docRef.id);
-      Alert.alert('Alerta', 'Guardado con éxito');
-      // Reiniciar el estado después de guardar para limpiar el formulario
+      Alert.alert('Éxito', 'Ficha guardada correctamente.');
+      
+      // Reiniciar el estado del formulario
       setState(initialState);
+      setImage(null);
+      console.log('Formulario y estado de imagen limpiados.');
+      
       navigation.navigate('Home');
+      console.log('Navegando a la pantalla Home.');
+
     } catch (error) {
-      console.error('Error al guardar la ficha:', error);
+      console.error('Error al guardar la ficha en Firestore:', error);
       Alert.alert('Error', `No se pudo guardar la ficha: ${error.message || 'Error desconocido'}`);
     } finally {
       setLoading(false);
+      console.log('Proceso de guardado de ficha finalizado. Estado de carga desactivado.');
     }
   };
 
-  // Función auxiliar para formatear la fecha para visualización
   const formatDate = (date) => {
-    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return ''; // Manejo robusto de fecha inválida
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
     const d = new Date(date);
     const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0'); // Meses son 0-index
+    const month = String(d.getMonth() + 1).padStart(2, '0');
     const year = d.getFullYear();
     return `${day}/${month}/${year}`;
   };
@@ -233,7 +354,7 @@ export default function NuevaFicha() {
             keyboardType="numeric"
           />
         </View>
-        <View style={{ width: '48%' }} /> {/* Espacio vacío para balancear el layout */}
+        <View style={{ width: '48%' }} /> {/* Mantener este View vacío para alinear */}
       </View>
 
       <View style={styles.checkboxRow}>
@@ -280,8 +401,7 @@ export default function NuevaFicha() {
       {/* Sección 2: Datos de Actividad */}
       <Text style={styles.sectionTitle}>Datos de Actividad</Text>
       <View style={styles.row}>
-        {/* Aquí el contenedor del DatePicker con el margen condicional */}
-        <View style={[styles.item, styles.datePickerContainerWeb, isDatePickerWebOpen && styles.datePickerOpenMargin]}>
+        <View style={[styles.item, Platform.OS === 'web' && styles.datePickerContainerWeb, isDatePickerWebOpen && Platform.OS === 'web' && styles.datePickerOpenMargin]}>
           <Text style={styles.label}>Fecha:</Text>
           {Platform.OS === 'web' ? (
             <DatePickerWeb
@@ -372,9 +492,26 @@ export default function NuevaFicha() {
         />
       </View>
 
+      {/* Sección de Selección de Imagen */}
+      <Text style={styles.sectionTitle}>Imagen de la Ficha</Text>
+      <View style={styles.imagePickerContainer}>
+        <Button title="Seleccionar Imagen" onPress={pickImage} color="#E15252" disabled={loading} />
+        {image && (
+          <View style={styles.imagePreviewContainer}>
+            <Image source={{ uri: image }} style={styles.imagePreview} resizeMode="contain" />
+            {/* Opcional: Muestra la URI para depuración */}
+            {/* <Text style={styles.imageUriText}>URI: {image}</Text> */}
+          </View>
+        )}
+      </View>
+      {/* Fin Sección de Selección de Imagen */}
+
       <TouchableOpacity style={styles.button} onPress={saveFicha} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
       </TouchableOpacity>
+      {loading && ( // Mostrar indicador de actividad solo cuando loading es true
+        <ActivityIndicator size="large" color="#E15252" style={styles.activityIndicator} />
+      )}
     </ScrollView>
   );
 }
@@ -430,7 +567,7 @@ const styles = StyleSheet.create({
   },
   datePickerContainerWeb: {
     position: 'relative',
-    zIndex: 1000,
+    // zIndex: 1000, // No es necesario si se maneja el margen
   },
   inputDatePickerWeb: {
     backgroundColor: '#fff',
@@ -445,7 +582,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   datePickerOpenMargin: {
-    marginBottom: 220,
+    marginBottom: 220, // Ajusta este valor si el DatePicker sigue siendo cubierto
   },
   fullWidthItem: {
     width: '100%',
@@ -532,5 +669,45 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  // Estilos para la sección de imagen
+  imagePickerContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 20,
+  },
+  imagePreviewContainer: {
+    marginTop: 20,
+    width: 250,
+    height: 250,
+    backgroundColor: '#e0e0e0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: 10,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#ccc',
+    // Corrección para shadow* warnings en React Native Web
+    ...Platform.select({
+      web: {
+        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
+      },
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+      },
+    }),
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+    // resizeMode: 'contain', <-- Ahora es una prop, no en style
+  },
+  activityIndicator: {
+    marginTop: 20,
   },
 });
