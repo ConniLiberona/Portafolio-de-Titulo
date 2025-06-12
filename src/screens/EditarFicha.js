@@ -8,10 +8,16 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
+  Image, // Importa el componente Image
+  ActivityIndicator, // Para el indicador de carga
 } from 'react-native';
-import { getFirestore, doc, updateDoc, Timestamp } from 'firebase/firestore'; // Importa updateDoc
-import appMoscasSAG from '../../credenciales'; // Asegúrate que la ruta a tus credenciales es correcta
+import { getFirestore, doc, updateDoc, Timestamp } from 'firebase/firestore';
+// Importaciones de Firebase Storage
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import appMoscasSAG from '../../credenciales';
 import { useNavigation } from '@react-navigation/native';
+// Importa expo-image-picker
+import * as ImagePicker from 'expo-image-picker';
 
 // Importaciones condicionales para el DatePicker
 let DatePickerWeb;
@@ -19,45 +25,72 @@ let DateTimePickerNative;
 
 if (Platform.OS === 'web') {
   DatePickerWeb = require('react-datepicker').default;
-  require('react-datepicker/dist/react-datepicker.css'); // Importa el CSS para web
+  require('react-datepicker/dist/react-datepicker.css');
 } else {
   DateTimePickerNative = require('@react-native-community/datetimepicker').default;
 }
 
 const db = getFirestore(appMoscasSAG);
+const storage = getStorage(appMoscasSAG); // Inicializa Storage
+
+// Función auxiliar para extraer la ruta de Storage desde una URL de descarga
+// Esto es necesario para poder eliminar la imagen antigua de Storage.
+function getStoragePathFromUrl(url) {
+  if (!url) return null;
+  try {
+    const urlObj = new URL(url);
+    const pathAndQuery = urlObj.pathname; // e.g., /v0/b/your-bucket.appspot.com/o/fichas_images%2Fimage_name.jpg
+    const parts = pathAndQuery.split('/o/');
+    if (parts.length < 2) return null;
+    const encodedPath = parts[1]; // e.g., fichas_images%2Fimage_name.jpg
+    return decodeURIComponent(encodedPath); // Decodifica para obtener la ruta limpia
+  } catch (e) {
+    console.error("Error al parsear URL de Storage:", e);
+    return null;
+  }
+}
 
 export default function EditarFicha({ route }) {
-  const { fichaId, currentFichaData } = route.params; // Recibe fichaId y los datos actuales
+  const { fichaId, currentFichaData } = route.params;
   const navigation = useNavigation();
 
-  // Inicializa el estado con los datos pasados o un objeto vacío si no hay datos
   const [state, setState] = useState(currentFichaData || {});
   const [loading, setLoading] = useState(false);
 
-  // Estado para el DatePicker nativo
+  // Nuevo estado para la imagen seleccionada localmente (antes de subir)
+  const [selectedImage, setSelectedImage] = useState(null);
+  // Nuevo estado para la URL de la imagen que ya está en Firestore
+  const [currentImageUrl, setCurrentImageUrl] = useState(null);
+
   const [showNativeDatePicker, setShowNativeDatePicker] = useState(false);
-  // Estado para controlar si el DatePicker web está abierto (para el margen dinámico)
   const [isDatePickerWebOpen, setIsDatePickerWebOpen] = useState(false);
 
-  // useEffect para asegurar que la fecha se inicialice como un objeto Date si viene de Timestamp
   useEffect(() => {
-    if (currentFichaData && currentFichaData.fecha && typeof currentFichaData.fecha.toDate === 'function') {
+    if (currentFichaData) {
+      // Inicializar la fecha como un objeto Date si viene de Timestamp
+      if (currentFichaData.fecha && typeof currentFichaData.fecha.toDate === 'function') {
+        setState(prevState => ({
+          ...prevState,
+          fecha: currentFichaData.fecha.toDate(),
+        }));
+      } else if (currentFichaData.fecha && !(currentFichaData.fecha instanceof Date)) {
+        console.warn("Fecha no es un Timestamp ni Date al cargar, valor:", currentFichaData.fecha);
+      }
+
+      // Inicializar campos numéricos como strings para TextInput
       setState(prevState => ({
         ...prevState,
-        fecha: currentFichaData.fecha.toDate(), // Convierte Timestamp a Date
+        region: String(prevState.region || ''),
+        cuadrante: String(prevState.cuadrante || ''),
+        subcuadrante: String(prevState.subcuadrante || ''),
+        n_trampa: String(prevState.n_trampa || ''),
       }));
-    } else if (currentFichaData && currentFichaData.fecha && !(currentFichaData.fecha instanceof Date)) {
-      console.warn("Fecha no es un Timestamp ni Date al cargar, valor:", currentFichaData.fecha);
+
+      // Inicializar la URL de la imagen actual
+      if (currentFichaData.imageUrl) {
+        setCurrentImageUrl(currentFichaData.imageUrl);
+      }
     }
-    // Asegurarse de que los campos numéricos se carguen como strings para el TextInput
-    // Esto es importante porque TextInput.value espera un string
-    setState(prevState => ({
-      ...prevState,
-      region: String(prevState.region || ''),
-      cuadrante: String(prevState.cuadrante || ''),
-      subcuadrante: String(prevState.subcuadrante || ''),
-      n_trampa: String(prevState.n_trampa || ''),
-    }));
   }, [currentFichaData]);
 
   const handleChangeText = (value, name) => {
@@ -71,12 +104,10 @@ export default function EditarFicha({ route }) {
     }));
   };
 
-  // Función para mostrar el DatePicker nativo
   const handleShowNativeDatePicker = () => {
     setShowNativeDatePicker(true);
   };
 
-  // Función para el cambio de fecha del DatePicker nativo
   const onNativeDateChange = (event, selectedDate) => {
     const currentDate = selectedDate || state.fecha;
     setShowNativeDatePicker(Platform.OS === 'ios');
@@ -86,7 +117,6 @@ export default function EditarFicha({ route }) {
     }));
   };
 
-  // Función para el cambio de fecha del DatePicker web (directamente el objeto Date)
   const onWebDateChange = (date) => {
     if (date instanceof Date && !isNaN(date.getTime())) {
       setState((prevState) => ({
@@ -96,51 +126,116 @@ export default function EditarFicha({ route }) {
     } else {
       console.warn("Fecha seleccionada no válida en web:", date);
     }
-    setIsDatePickerWebOpen(false); // Cierra el calendario después de seleccionar
+    setIsDatePickerWebOpen(false);
+  };
+
+  // Función para seleccionar una imagen
+  const pickImage = async () => {
+    // Solicitar permisos en plataformas que lo requieran (no en web)
+    if (Platform.OS !== 'web') {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Necesitamos permiso para acceder a tu galería de imágenes para que esto funcione.');
+        return;
+      }
+    }
+
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true, // Permite recortar o editar la imagen
+      aspect: [4, 3],     // Aspecto de la imagen
+      quality: 0.8,       // Calidad de la imagen (0 a 1)
+    });
+
+    if (!result.canceled) {
+      setSelectedImage(result.assets[0].uri); // Guarda la URI local de la nueva imagen
+      // No modificamos currentImageUrl aquí, solo selectedImage.
+      // currentImageUrl seguirá siendo la URL de la imagen actual en Firestore.
+      // selectedImage representará la imagen que el usuario *quiere* subir.
+    }
   };
 
   const updateFicha = async () => {
-    // --- Inicio de la Validación de Campos ---
+    // --- Validación de Campos ---
     if (
-        !state.region.trim() || isNaN(Number(state.region)) ||
-        !state.oficina.trim() ||
-        !state.cuadrante.trim() || isNaN(Number(state.cuadrante)) ||
-        !state.subcuadrante.trim() || isNaN(Number(state.subcuadrante)) ||
-        !state.ruta.trim() ||
-        !state.n_trampa.trim() || isNaN(Number(state.n_trampa)) ||
-        !state.actividad.trim() ||
-        !state.prospector.trim() ||
-        !state.localizacion.trim()
+      !state.region.trim() || isNaN(Number(state.region)) ||
+      !state.oficina.trim() ||
+      !state.cuadrante.trim() || isNaN(Number(state.cuadrante)) ||
+      !state.subcuadrante.trim() || isNaN(Number(state.subcuadrante)) ||
+      !state.ruta.trim() ||
+      !state.n_trampa.trim() || isNaN(Number(state.n_trampa)) ||
+      !state.actividad.trim() ||
+      !state.prospector.trim() ||
+      !state.localizacion.trim()
     ) {
       Alert.alert('Error', 'Por favor, complete todos los campos obligatorios y asegúrese de que los campos numéricos sean números válidos.');
       return;
     }
 
     if (!state.fecha || !(state.fecha instanceof Date) || isNaN(state.fecha.getTime())) {
-        Alert.alert('Error', 'Por favor, seleccione una fecha válida.');
-        return;
+      Alert.alert('Error', 'Por favor, seleccione una fecha válida.');
+      return;
     }
     // --- Fin de la Validación de Campos ---
 
     setLoading(true);
 
     try {
-      const docRef = doc(db, 'fichas', fichaId); // Referencia al documento específico
-      
+      const docRef = doc(db, 'fichas', fichaId);
       const dataToUpdate = { ...state };
+      let finalImageUrl = currentImageUrl; // Inicialmente, mantenemos la URL actual
+
+      // Si el usuario seleccionó una NUEVA imagen
+      if (selectedImage) {
+        // 1. Eliminar la imagen antigua de Firebase Storage (si existe)
+        if (currentImageUrl) {
+          const oldPath = getStoragePathFromUrl(currentImageUrl);
+          if (oldPath) {
+            const oldImageRef = ref(storage, oldPath);
+            try {
+              await deleteObject(oldImageRef);
+              console.log("Imagen antigua eliminada de Storage:", oldPath);
+            } catch (deleteError) {
+              // Si el error es un 'NotFound', significa que la imagen ya no existía, lo cual está bien.
+              // Otros errores (permisos, red) sí deberían ser logueados.
+              if (deleteError.code !== 'storage/object-not-found') {
+                console.error("Error al eliminar imagen antigua de Storage:", deleteError);
+                // Opcional: mostrar un Alert si el error es crítico y no se puede ignorar
+                // Alert.alert('Advertencia', 'No se pudo eliminar la imagen antigua de Storage. Continúe con la actualización.');
+              } else {
+                console.log("La imagen antigua no se encontró en Storage (posiblemente ya eliminada o URL inválida).");
+              }
+            }
+          }
+        }
+
+        // 2. Subir la nueva imagen a Firebase Storage
+        const response = await fetch(selectedImage);
+        const blob = await response.blob();
+        const imageName = `ficha_${fichaId}_${Date.now()}`; // Nombre único para la nueva imagen
+        const imageRef = ref(storage, `fichas_images/${imageName}`);
+        
+        await uploadBytes(imageRef, blob); // Sube la imagen
+        finalImageUrl = await getDownloadURL(imageRef); // Obtiene la URL de descarga de la nueva imagen
+        console.log("Nueva imagen subida, URL:", finalImageUrl);
+      }
+
+      // Actualizar el campo 'imageUrl' en los datos a guardar
+      dataToUpdate.imageUrl = finalImageUrl;
+
+      // Convertir campos numéricos y la fecha a sus tipos correctos antes de guardar
       dataToUpdate.region = Number(dataToUpdate.region);
       dataToUpdate.cuadrante = Number(dataToUpdate.cuadrante);
       dataToUpdate.subcuadrante = Number(dataToUpdate.subcuadrante);
       dataToUpdate.n_trampa = Number(dataToUpdate.n_trampa);
-      
-      dataToUpdate.fecha = Timestamp.fromDate(dataToUpdate.fecha); // Convierte a Timestamp
+      dataToUpdate.fecha = Timestamp.fromDate(dataToUpdate.fecha);
 
       console.log("Datos a actualizar en Firestore:", dataToUpdate);
 
-      await updateDoc(docRef, dataToUpdate); // Usa updateDoc
+      await updateDoc(docRef, dataToUpdate);
 
       Alert.alert('Alerta', 'Ficha actualizada con éxito');
-      navigation.goBack(); // Vuelve a la pantalla de DetalleFicha
+      navigation.goBack();
     } catch (error) {
       console.error('Error al actualizar la ficha:', error);
       Alert.alert('Error', `No se pudo actualizar la ficha: ${error.message || 'Error desconocido'}`);
@@ -149,7 +244,6 @@ export default function EditarFicha({ route }) {
     }
   };
 
-  // Función auxiliar para formatear la fecha para visualización
   const formatDate = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) return '';
     const d = new Date(date);
@@ -161,7 +255,6 @@ export default function EditarFicha({ route }) {
 
   return (
     <ScrollView style={styles.container}>
-      {/* CAMBIO AQUÍ: Mostrar n_trampa en lugar de fichaId */}
       <Text style={styles.title}>Editar Ficha ({state.n_trampa || 'N/A'})</Text>
 
       {/* Sección 1: Datos de Ubicación */}
@@ -360,6 +453,37 @@ export default function EditarFicha({ route }) {
         />
       </View>
 
+      {/* SECCIÓN DE IMAGEN */}
+      <Text style={styles.sectionTitle}>Imagen de la Ficha</Text>
+      <View style={styles.formGroup}>
+        {/* Muestra la imagen actual si no hay una nueva seleccionada */}
+        {!selectedImage && currentImageUrl && (
+          <Image
+            source={{ uri: currentImageUrl }}
+            style={styles.fichaImagePreview}
+          />
+        )}
+        {/* Muestra la imagen recién seleccionada si existe */}
+        {selectedImage && (
+          <Image
+            source={{ uri: selectedImage }}
+            style={styles.fichaImagePreview}
+          />
+        )}
+
+        <TouchableOpacity style={styles.imagePickerButton} onPress={pickImage}>
+          <Text style={styles.buttonText}>Seleccionar/Cambiar Imagen</Text>
+        </TouchableOpacity>
+
+        {selectedImage && (
+          <TouchableOpacity style={styles.clearImageButton} onPress={() => setSelectedImage(null)}>
+            <Text style={styles.clearImageButtonText}>Limpiar Selección</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+      {/* FIN SECCIÓN DE IMAGEN */}
+
+
       <TouchableOpacity style={styles.button} onPress={updateFicha} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Actualizando...' : 'Actualizar Ficha'}</Text>
       </TouchableOpacity>
@@ -528,5 +652,35 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  // Nuevos estilos para la previsualización de la imagen
+  fichaImagePreview: {
+    width: '100%',
+    height: 200, // Altura fija para la previsualización
+    resizeMode: 'contain', // Ajusta la imagen dentro del contenedor
+    marginTop: 10,
+    marginBottom: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  imagePickerButton: {
+    backgroundColor: '#1E88E5', // Un color azul para el botón de selección
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 10,
+    alignItems: 'center',
+  },
+  clearImageButton: {
+    backgroundColor: '#9E9E9E', // Un color gris para el botón de limpiar
+    paddingVertical: 8,
+    borderRadius: 8,
+    marginTop: 5,
+    alignItems: 'center',
+  },
+  clearImageButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
 });
