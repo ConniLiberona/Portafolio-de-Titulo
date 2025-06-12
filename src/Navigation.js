@@ -9,6 +9,7 @@ import MapScreenNative from './screens/MapScreen'; // Por defecto, asume que es 
 import MapScreenWeb from './screens/MapScreen.web';
 import EditarFicha from './screens/EditarFicha'; // ¡Necesitas crear este componente!
 import { Platform } from 'react-native';
+import PapeleraScreen from './screens/PapeleraScreen';
 
 const Stack = createStackNavigator();
 
@@ -69,6 +70,18 @@ function MyStack() {
         component={EditarFicha}
         options={{
           title: "EDITAR FICHA",
+          headerTintColor: "white",
+          headerTitleAlign: "center",
+          headerStyle: { backgroundColor: "#E15252" },
+          presentation: 'modal',
+        }}
+      />
+
+      <Stack.Screen
+        name="Papelera"
+        component={PapeleraScreen}
+        options={{
+          title: "Papelera",
           headerTintColor: "white",
           headerTitleAlign: "center",
           headerStyle: { backgroundColor: "#E15252" },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
-import { getFirestore, collection, getDocs, doc, query, orderBy } from 'firebase/firestore';
+import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { getFirestore, collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore'; // Importa 'where'
 import appMoscasSAG from '../../credenciales';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -19,11 +19,16 @@ export default function ListaFichas() {
     setError(null);
     try {
       const fichasCollection = collection(db, 'fichas');
-      // Opcional: Ordena por n_trampa ascendente para una lista consistente
-      const q = query(fichasCollection, orderBy('n_trampa', 'asc'));
+      // Consulta: Ordena por n_trampa ascendente y EXCLUYE las fichas marcadas como eliminadas
+      const q = query(
+        fichasCollection,
+        where('deleted', '==', false), // <--- CAMBIO CLAVE AQUÍ: Solo fichas no eliminadas
+        orderBy('n_trampa', 'asc')
+      );
       const fichasSnapshot = await getDocs(q);
       const fichasList = fichasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFichas(fichasList);
+      console.log("Fichas activas cargadas:", fichasList.length); // Para depuración
     } catch (e) {
       setError('Error al cargar las fichas.');
       console.error("Error fetching documents: ", e);
@@ -36,11 +41,10 @@ export default function ListaFichas() {
   useFocusEffect(
     useCallback(() => {
       fetchFichas();
-      // No se necesita un retorno aquí a menos que tengas suscripciones en tiempo real
       return () => {
-        // Limpieza si fuera necesario, por ejemplo, cancelar listeners de Firestore
+        // Limpieza si fuera necesaria, por ejemplo, cancelar listeners de Firestore
       };
-    }, []) // El array vacío asegura que el efecto solo se cree una vez
+    }, [])
   );
 
   // Función para manejar la navegación al detalle de una ficha
@@ -49,15 +53,28 @@ export default function ListaFichas() {
   };
 
   if (loading) {
-    return <Text style={styles.messageText}>Cargando fichas...</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#E15252" />
+        <Text style={styles.messageText}>Cargando fichas...</Text>
+      </View>
+    );
   }
 
   if (error) {
-    return <Text style={styles.messageText}>Error: {error}</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.messageText}>Error: {error}</Text>
+      </View>
+    );
   }
 
   if (fichas.length === 0) {
-    return <Text style={styles.messageText}>No hay fichas registradas.</Text>;
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.messageText}>No hay fichas activas registradas.</Text>
+      </View>
+    );
   }
 
   return (
@@ -71,9 +88,10 @@ export default function ListaFichas() {
             style={styles.fichaItem}
             onPress={() => handlePressFicha(item.id, item)}
           >
-            <Text style={styles.fichaText}>N° Trampa: {item.n_trampa}</Text>
+            <Text style={styles.fichaText}>N° Trampa: {item.n_trampa || 'N/A'}</Text>
             {/* Puedes añadir más detalles si lo deseas */}
             {/* <Text style={styles.fichaDetail}>Ruta: {item.ruta}</Text> */}
+            {/* <Text style={styles.fichaDetail}>Oficina: {item.oficina}</Text> */}
           </TouchableOpacity>
         )}
       />
@@ -85,6 +103,12 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
+    backgroundColor: '#f4f4f4',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#f4f4f4',
   },
   title: {
