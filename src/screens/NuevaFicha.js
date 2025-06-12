@@ -10,7 +10,7 @@ import {
   Platform,
   Image,
   Button,
-  ActivityIndicator, // <--- Importar ActivityIndicator para el estado de carga
+  ActivityIndicator,
 } from 'react-native';
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -50,6 +50,8 @@ export default function NuevaFicha() {
     prospector: '',
     localizacion: '',
     observaciones: '',
+    deleted: false,
+    deletedAt: null,
   };
 
   const [state, setState] = useState(initialState);
@@ -79,7 +81,7 @@ export default function NuevaFicha() {
 
     try {
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images, // Usar MediaTypeOptions.Images
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.5,
@@ -93,15 +95,12 @@ export default function NuevaFicha() {
         setImage(selectedImageUri);
       } else if (result.canceled) {
         console.log('Selección de imagen cancelada por el usuario.');
-        setImage(null); // Asegúrate de limpiar la imagen si se cancela
       } else {
         console.warn('Selección de imagen fallida o sin assets.');
-        setImage(null);
       }
     } catch (error) {
       console.error('Error al intentar seleccionar la imagen:', error);
       Alert.alert('Error', 'Ocurrió un error al intentar abrir el selector de imágenes.');
-      setImage(null);
     }
     console.log('--- Fin del proceso de selección de imagen ---');
   };
@@ -112,7 +111,6 @@ export default function NuevaFicha() {
     try {
       if (!uri) {
         console.warn('URI de imagen no proporcionada para la subida.');
-        Alert.alert('Error de subida', 'No se encontró la imagen para subir.');
         return null;
       }
 
@@ -182,7 +180,7 @@ export default function NuevaFicha() {
     console.log('Estado actual de la ficha antes de validación:', state);
     console.log('Imagen seleccionada antes de validación:', image);
 
-    // Validación de Campos
+    // Validación de Campos Obligatorios
     const numericFields = ['region', 'cuadrante', 'subcuadrante', 'n_trampa'];
     for (const field of numericFields) {
       if (!state[field].trim() || isNaN(Number(state[field]))) {
@@ -207,31 +205,29 @@ export default function NuevaFicha() {
       return;
     }
 
-    if (!image) {
-      Alert.alert('Advertencia', 'Por favor, selecciona una imagen antes de guardar la ficha.');
-      console.warn('Validación fallida: No hay imagen seleccionada.');
-      return;
-    }
-
     setLoading(true);
-    Alert.alert('Guardando...', 'Subiendo imagen y guardando ficha, por favor espera.', [{ text: 'OK', onPress: () => console.log('Alerta de guardado cerrada.') }]);
+    Alert.alert('Guardando...', 'Guardando ficha, por favor espera.', [{ text: 'OK', onPress: () => console.log('Alerta de guardado cerrada.') }]);
     console.log('Estado de carga activado.');
 
     let imageUrl = null;
-    try {
-      imageUrl = await uploadImage(image);
-      if (!imageUrl) {
-        console.error('La URL de la imagen es nula después de intentar subirla.');
-        Alert.alert('Error', 'No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+    if (image) {
+      try {
+        imageUrl = await uploadImage(image);
+        if (!imageUrl) {
+          console.error('La URL de la imagen es nula después de intentar subirla.');
+          Alert.alert('Error', 'No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+          setLoading(false);
+          return;
+        }
+        console.log('URL de la imagen para la ficha:', imageUrl);
+      } catch (uploadError) {
+        console.error('Error crítico al subir la imagen en saveFicha:', uploadError);
+        Alert.alert('Error', 'Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
         setLoading(false);
         return;
       }
-      console.log('URL de la imagen para la ficha:', imageUrl);
-    } catch (uploadError) {
-      console.error('Error crítico al subir la imagen en saveFicha:', uploadError);
-      Alert.alert('Error', 'Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
-      setLoading(false);
-      return;
+    } else {
+      console.log('No hay imagen seleccionada. La ficha se guardará sin imagen.');
     }
 
     try {
@@ -240,15 +236,19 @@ export default function NuevaFicha() {
       dataToSave.cuadrante = Number(dataToSave.cuadrante);
       dataToSave.subcuadrante = Number(dataToSave.subcuadrante);
       dataToSave.n_trampa = Number(dataToSave.n_trampa);
-      dataToSave.imageUrl = imageUrl;
-      dataToSave.createdAt = Timestamp.fromDate(new Date()); // Añadir timestamp de creación
+      if (imageUrl) {
+        dataToSave.imageUrl = imageUrl;
+      } else {
+        dataToSave.imageUrl = null;
+      }
 
-      // Convertir la fecha a un Timestamp de Firestore
+      dataToSave.createdAt = Timestamp.fromDate(new Date());
+
       if (dataToSave.fecha instanceof Date && !isNaN(dataToSave.fecha.getTime())) {
         dataToSave.fecha = Timestamp.fromDate(dataToSave.fecha);
       } else {
         console.warn('La fecha no es un objeto Date válido o está vacía, no se convertirá a Timestamp.');
-        delete dataToSave.fecha; // Eliminar la fecha inválida para evitar errores en Firestore
+        delete dataToSave.fecha;
       }
 
       console.log("Preparando datos para guardar en Firestore:", dataToSave);
@@ -257,12 +257,11 @@ export default function NuevaFicha() {
 
       console.log('Documento escrito con ID: ', docRef.id);
       Alert.alert('Éxito', 'Ficha guardada correctamente.');
-      
-      // Reiniciar el estado del formulario
+
       setState(initialState);
       setImage(null);
       console.log('Formulario y estado de imagen limpiados.');
-      
+
       navigation.navigate('Home');
       console.log('Navegando a la pantalla Home.');
 
@@ -296,6 +295,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'region')}
             value={state.region}
             placeholder="Ingrese Región"
+            placeholderTextColor="#888" // Color del placeholder para la Región
             keyboardType="numeric"
           />
         </View>
@@ -306,6 +306,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'oficina')}
             value={state.oficina}
             placeholder="Ingrese Oficina"
+            placeholderTextColor="#888" // Color del placeholder para la Oficina
           />
         </View>
       </View>
@@ -318,6 +319,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'cuadrante')}
             value={state.cuadrante}
             placeholder="Ingrese Cuadrante"
+            placeholderTextColor="#888" // Color del placeholder para el Cuadrante
             keyboardType="numeric"
           />
         </View>
@@ -328,6 +330,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'subcuadrante')}
             value={state.subcuadrante}
             placeholder="Ingrese Subcuadrante"
+            placeholderTextColor="#888" // Color del placeholder para el Subcuadrante
             keyboardType="numeric"
           />
         </View>
@@ -340,6 +343,7 @@ export default function NuevaFicha() {
           onChangeText={(value) => handleChangeText(value, 'ruta')}
           value={state.ruta}
           placeholder="Ingrese Ruta"
+          placeholderTextColor="#888" // Color del placeholder para la Ruta
         />
       </View>
 
@@ -351,10 +355,11 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'n_trampa')}
             value={state.n_trampa}
             placeholder="Ingrese N° Trampa"
+            placeholderTextColor="#888" // Color del placeholder para el N° Trampa
             keyboardType="numeric"
           />
         </View>
-        <View style={{ width: '48%' }} /> {/* Mantener este View vacío para alinear */}
+        <View style={{ width: '48%' }} />
       </View>
 
       <View style={styles.checkboxRow}>
@@ -376,7 +381,7 @@ export default function NuevaFicha() {
         <TouchableOpacity
           style={styles.checkboxContainer}
           onPress={() => handleCheckboxChange('condicion_temporal')}
-        >
+          >
           <View style={[styles.checkbox, state.condicion_temporal && styles.checkboxActive]} />
           <Text style={styles.checkboxLabel}>Temporal</Text>
         </TouchableOpacity>
@@ -408,7 +413,7 @@ export default function NuevaFicha() {
               selected={state.fecha}
               onChange={onWebDateChange}
               dateFormat="dd/MM/yyyy"
-              customInput={<TextInput style={styles.inputDatePickerWeb} placeholder="DD/MM/AAAA" />}
+              customInput={<TextInput style={styles.inputDatePickerWeb} placeholder="DD/MM/AAAA" placeholderTextColor="#888" />} // Color del placeholder para la Fecha (Web)
               popperPlacement="bottom-start"
               popperModifiers={[
                 {
@@ -433,6 +438,7 @@ export default function NuevaFicha() {
                 style={styles.input}
                 value={formatDate(state.fecha)}
                 placeholder="DD/MM/AAAA"
+                placeholderTextColor="#888" // Color del placeholder para la Fecha (Native)
                 editable={false}
               />
             </TouchableOpacity>
@@ -455,6 +461,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'actividad')}
             value={state.actividad}
             placeholder="Ingrese Actividad"
+            placeholderTextColor="#888" // Color del placeholder para la Actividad
           />
         </View>
       </View>
@@ -467,6 +474,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'prospector')}
             value={state.prospector}
             placeholder="Ingrese Prospector"
+            placeholderTextColor="#888" // Color del placeholder para el Prospector
           />
         </View>
         <View style={styles.item}>
@@ -476,6 +484,7 @@ export default function NuevaFicha() {
             onChangeText={(value) => handleChangeText(value, 'localizacion')}
             value={state.localizacion}
             placeholder="Ingrese Localización"
+            placeholderTextColor="#888" // Color del placeholder para la Localización
           />
         </View>
       </View>
@@ -487,20 +496,22 @@ export default function NuevaFicha() {
           onChangeText={(value) => handleChangeText(value, 'observaciones')}
           value={state.observaciones}
           placeholder="Ingrese Observaciones"
+          placeholderTextColor="#888" // Color del placeholder para Observaciones
           multiline={true}
           numberOfLines={4}
         />
       </View>
 
       {/* Sección de Selección de Imagen */}
-      <Text style={styles.sectionTitle}>Imagen de la Ficha</Text>
+      <Text style={styles.sectionTitle}>Imagen de la Ficha (Opcional)</Text>
       <View style={styles.imagePickerContainer}>
         <Button title="Seleccionar Imagen" onPress={pickImage} color="#E15252" disabled={loading} />
         {image && (
           <View style={styles.imagePreviewContainer}>
             <Image source={{ uri: image }} style={styles.imagePreview} resizeMode="contain" />
-            {/* Opcional: Muestra la URI para depuración */}
-            {/* <Text style={styles.imageUriText}>URI: {image}</Text> */}
+            <TouchableOpacity onPress={() => setImage(null)} style={styles.clearImageButton}>
+                <Text style={styles.clearImageButtonText}>X Quitar Imagen</Text>
+            </TouchableOpacity>
           </View>
         )}
       </View>
@@ -509,7 +520,7 @@ export default function NuevaFicha() {
       <TouchableOpacity style={styles.button} onPress={saveFicha} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
       </TouchableOpacity>
-      {loading && ( // Mostrar indicador de actividad solo cuando loading es true
+      {loading && (
         <ActivityIndicator size="large" color="#E15252" style={styles.activityIndicator} />
       )}
     </ScrollView>
@@ -567,7 +578,6 @@ const styles = StyleSheet.create({
   },
   datePickerContainerWeb: {
     position: 'relative',
-    // zIndex: 1000, // No es necesario si se maneja el margen
   },
   inputDatePickerWeb: {
     backgroundColor: '#fff',
@@ -582,7 +592,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   datePickerOpenMargin: {
-    marginBottom: 220, // Ajusta este valor si el DatePicker sigue siendo cubierto
+    marginBottom: 220,
   },
   fullWidthItem: {
     width: '100%',
@@ -688,7 +698,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#ccc',
-    // Corrección para shadow* warnings en React Native Web
     ...Platform.select({
       web: {
         boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
@@ -701,13 +710,27 @@ const styles = StyleSheet.create({
         elevation: 3,
       },
     }),
+    position: 'relative',
   },
   imagePreview: {
     width: '100%',
     height: '100%',
-    // resizeMode: 'contain', <-- Ahora es una prop, no en style
   },
   activityIndicator: {
     marginTop: 20,
+  },
+  clearImageButton: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    backgroundColor: 'rgba(225, 82, 82, 0.8)',
+    borderRadius: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  clearImageButtonText: {
+    color: 'white',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
