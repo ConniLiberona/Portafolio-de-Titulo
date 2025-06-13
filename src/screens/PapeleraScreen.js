@@ -14,8 +14,7 @@ import {
   collection,
   query,
   where,
-  orderBy,
-  getDocs,
+  getDocs, // Ya no necesitamos 'orderBy' en la consulta de Firestore
   doc,
   updateDoc, // Para restaurar
   deleteDoc, // Para eliminar permanentemente
@@ -28,7 +27,6 @@ const db = getFirestore(appMoscasSAG);
 const storage = getStorage(appMoscasSAG); // Inicializa Storage
 
 // Función auxiliar para extraer la ruta de Storage desde una URL de descarga
-// La misma que usamos en EditarFicha
 function getStoragePathFromUrl(url) {
   if (!url) return null;
   try {
@@ -56,22 +54,52 @@ export default function PapeleraScreen() {
     setError(null);
     try {
       const fichasCollectionRef = collection(db, 'fichas');
-      // Consulta: donde 'deleted' es true, ordenadas por 'deletedAt' descendente
+      // Consulta: solo filtramos por 'deleted' es true.
+      // Ya no incluimos 'orderBy' en la consulta de Firestore.
       const q = query(
         fichasCollectionRef,
         where('deleted', '==', true),
-        orderBy('deletedAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => ({
+      let data = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       }));
+
+      // AHORA ORDENAMOS LOS DATOS EN EL CLIENTE (en la app)
+      // Esto es flexible para manejar Timestamps, strings o null/undefined
+      data.sort((a, b) => {
+        // Función interna para obtener un objeto Date válido de cualquier formato
+        const convertToDate = (value) => {
+          if (value && typeof value.toDate === 'function') {
+            return value.toDate(); // Es un Timestamp de Firestore
+          }
+          if (typeof value === 'string') {
+            try {
+              const d = new Date(value);
+              if (!isNaN(d.getTime())) { // Verifica si la fecha es válida
+                return d;
+              }
+            } catch (e) {
+              console.warn("No se pudo parsear la fecha como string:", value, e);
+            }
+          }
+          // Si no se puede determinar la fecha, la consideramos muy antigua para que aparezca al final
+          return new Date(0); // Epoch, 1 de enero de 1970
+        };
+
+        const dateA = convertToDate(a.deletedAt);
+        const dateB = convertToDate(b.deletedAt);
+
+        // Orden descendente: las fichas más recientes (mayor valor de fecha) aparecen primero
+        return dateB.getTime() - dateA.getTime();
+      });
+
       setFichasEliminadas(data);
-      console.log("Fichas en papelera cargadas:", data.length);
+      console.log("Fichas en papelera cargadas y ordenadas en cliente:", data.length);
     } catch (e) {
-      setError('Error al cargar las fichas de la papelera.');
-      console.error("Error fetching deleted fichas:", e);
+      setError('Error al cargar y ordenar las fichas de la papelera. Verifique la consola para más detalles.');
+      console.error("Error fetching or sorting deleted fichas:", e);
     } finally {
       setLoading(false);
     }
@@ -176,9 +204,22 @@ export default function PapeleraScreen() {
   };
 
   const renderItem = ({ item }) => {
-    const deletedDate = item.deletedAt && typeof item.deletedAt.toDate === 'function'
-      ? item.deletedAt.toDate().toLocaleDateString('es-ES')
-      : 'N/A';
+    // Lógica para formatear la fecha que soporta Timestamp, string y null/undefined
+    const deletedDate = item.deletedAt
+      ? (typeof item.deletedAt.toDate === 'function' // Si es un Timestamp de Firestore
+         ? item.deletedAt.toDate().toLocaleDateString('es-ES', {
+             year: 'numeric', month: 'long', day: 'numeric',
+             hour: '2-digit', minute: '2-digit'
+           })
+         : (typeof item.deletedAt === 'string' // Si es una cadena de texto (formato antiguo)
+            ? new Date(item.deletedAt).toLocaleDateString('es-ES', {
+                year: 'numeric', month: 'long', day: 'numeric',
+                hour: '2-digit', minute: '2-digit'
+              })
+            : 'N/A (sin fecha de eliminación)' // Para cualquier otro tipo o si no es válido
+           )
+        )
+      : 'N/A (sin fecha de eliminación)'; // Si el campo no existe
 
     return (
       <View style={styles.fichaCard}>
