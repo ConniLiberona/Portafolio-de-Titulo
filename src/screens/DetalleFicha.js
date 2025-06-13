@@ -30,15 +30,6 @@ export default function DetalleFicha({ route }) {
                 const docSnap = await getDoc(docRef);
                 if (docSnap.exists()) {
                     const fichaData = docSnap.data();
-                    // Opcional: Si quieres evitar que las fichas eliminadas se vean aquí
-                    // if (fichaData.deleted) {
-                    //     setError('Esta ficha ha sido movida a la papelera.');
-                    //     setFicha(null);
-                    //     // Opcionalmente, puedes navegar de vuelta o a la pantalla de la papelera
-                    //     Alert.alert("Ficha Eliminada", "Esta ficha ha sido movida a la papelera. Será redirigido.");
-                    //     navigation.goBack();
-                    //     return;
-                    // }
                     setFicha(fichaData);
                     console.log('Datos de la ficha cargados:', fichaData);
                     console.log('URL de la imagen (desde ficha.imageUrl):', fichaData.imageUrl);
@@ -55,7 +46,7 @@ export default function DetalleFicha({ route }) {
         };
 
         fetchFicha();
-    }, [fichaId]); // Volver a cargar si el fichaId cambia
+    }, [fichaId]);
 
     // Maneja el movimiento de una ficha a la papelera
     const handleDeleteFicha = async () => {
@@ -64,7 +55,6 @@ export default function DetalleFicha({ route }) {
         if (Platform.OS === 'web') {
             confirmDeletion = window.confirm("¿Estás seguro de que quieres mover esta ficha a la papelera?");
         } else {
-            // Usando una Promesa con Alert.alert para un mejor manejo asíncrono
             confirmDeletion = await new Promise((resolve) => {
                 Alert.alert(
                     "Mover a Papelera",
@@ -79,18 +69,18 @@ export default function DetalleFicha({ route }) {
         }
 
         if (!confirmDeletion) {
-            return; // El usuario canceló la acción
+            return;
         }
 
         try {
             console.log('Intentando mover a papelera ficha con ID:', fichaId);
             const fichaRef = doc(db, 'fichas', fichaId);
             await updateDoc(fichaRef, {
-                deleted: true, // Marcar como eliminada
-                deletedAt: serverTimestamp() // Añadir timestamp del servidor para la hora de eliminación
+                deleted: true,
+                deletedAt: serverTimestamp()
             });
             Alert.alert("Éxito", "Ficha movida a la papelera correctamente.");
-            navigation.goBack(); // Navegar de vuelta a la pantalla anterior (ej. ListaFichas)
+            navigation.goBack();
         } catch (e) {
             Alert.alert("Error", `No se pudo mover la ficha a la papelera: ${e.message}`);
             console.error("Error al mover ficha a papelera:", e);
@@ -115,10 +105,8 @@ export default function DetalleFicha({ route }) {
                 day: 'numeric',
             });
         }
-        // Manejo especial para 'condiciones_trampa' basado en campos booleanos individuales
         if (key === 'condiciones_trampa') {
             let condiciones = [];
-            // Usar optional chaining para evitar errores si ficha es null/undefined
             if (ficha?.condicion_fija) condiciones.push('Fija');
             if (ficha?.condicion_movil) condiciones.push('Móvil');
             if (ficha?.condicion_temporal) condiciones.push('Temporal');
@@ -136,17 +124,6 @@ export default function DetalleFicha({ route }) {
             Alert.alert('Error', 'No hay datos de ficha para exportar.');
             return;
         }
-
-        // --- IMPORTANTE: pdfMake e Imágenes ---
-        // La librería htmlToPdfmake con la opción `imagesByReference: true` espera que las URLs de las imágenes sean
-        // resueltas por el propio pdfMake. Sin embargo, pdfMake en el lado del cliente (especialmente en React Native)
-        // usualmente necesita las imágenes como **data URLs (base64)** para su generación.
-        // Para una solución robusta en React Native, típicamente tendrías que obtener la imagen
-        // y convertirla a base64 *antes* de pasarla a htmlToPdfmake o pdfMake.
-        // Por ahora, mantendremos el `img src` tal cual, pero ten en cuenta que esto
-        // podría no funcionar directamente en todas las plataformas sin un manejo adicional.
-        // Para una demostración simple o en la web, podría renderizarse un marcador de posición
-        // o funcionar si el entorno puede obtener imágenes externas.
 
         let htmlContent = `
             <h1>Detalle de Ficha</h1>
@@ -170,9 +147,6 @@ export default function DetalleFicha({ route }) {
         `;
 
         const content = htmlToPdfmake(htmlContent, {
-            // Esta opción le dice a html-to-pdfmake que procese las etiquetas de imagen.
-            // Sin embargo, pdfMake típicamente necesita las imágenes como URLs de datos (base64).
-            // Para una aplicación de producción, deberías obtener ficha.imageUrl y convertirla a base64.
             imagesByReference: true
         });
 
@@ -185,8 +159,6 @@ export default function DetalleFicha({ route }) {
                 strong: { bold: true },
             },
             defaultStyle: {
-                // Asegúrate de que la fuente 'Roboto' esté disponible o especifica una alternativa.
-                // En React Native, es posible que necesites incrustar fuentes si no usas una fuente del sistema predeterminada.
                 font: 'Roboto',
             }
         };
@@ -200,7 +172,6 @@ export default function DetalleFicha({ route }) {
         }
     };
 
-    // --- Estados de Carga, Error y Vacío ---
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -226,18 +197,15 @@ export default function DetalleFicha({ route }) {
         );
     }
 
-    // --- Renderizado Principal del Componente ---
     return (
         <ScrollView style={styles.container}>
             <Text style={styles.title}>Detalle de Ficha</Text>
 
-            {/* Número de Trampa */}
             <View style={styles.formGroup}>
                 <Text style={styles.label}>N° Trampa:</Text>
                 <Text style={styles.valueDisplay}>{formatValue('n_trampa', ficha.n_trampa)}</Text>
             </View>
 
-            {/* Datos de Ubicación */}
             <Text style={styles.sectionTitle}>Datos de Ubicación</Text>
             <View style={styles.formGroup}>
                 <Text style={styles.label}>Región:</Text>
@@ -268,7 +236,6 @@ export default function DetalleFicha({ route }) {
                 <Text style={styles.valueDisplay}>{formatValue('huso', ficha.huso)}</Text>
             </View>
 
-            {/* Datos de Actividad */}
             <Text style={styles.sectionTitle}>Datos de Actividad</Text>
             <View style={styles.formGroup}>
                 <Text style={styles.label}>Fecha:</Text>
@@ -291,7 +258,6 @@ export default function DetalleFicha({ route }) {
                 <Text style={styles.valueDisplay}>{formatValue('observaciones', ficha.observaciones)}</Text>
             </View>
 
-            {/* Visualización de la Imagen */}
             {ficha.imageUrl && (
                 <View style={styles.formGroup}>
                     <Text style={styles.label}>Imagen de la Ficha:</Text>
@@ -304,7 +270,6 @@ export default function DetalleFicha({ route }) {
                 </View>
             )}
 
-            {/* Botones de Acción */}
             <View style={styles.buttonContainer}>
                 <TouchableOpacity
                     style={[styles.button, styles.modifyButton]}
@@ -393,15 +358,16 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-around',
+        justifyContent: 'center', // Centra los botones en la fila
         marginTop: 30,
         marginBottom: 20,
+        // No necesitamos paddingHorizontal aquí si los botones tienen marginHorizontal
     },
     button: {
         paddingVertical: 14,
         paddingHorizontal: 28,
         borderRadius: 10,
-        minWidth: 140,
+        minWidth: 140, // Mantenemos el ancho mínimo para que el texto se vea bien
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
@@ -412,6 +378,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4.65,
         elevation: 6,
+        marginHorizontal: 5, // Añade un pequeño margen a cada lado de cada botón
     },
     modifyButton: {
         backgroundColor: '#FFC107',
