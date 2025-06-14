@@ -524,7 +524,7 @@ export default function NuevaFicha() {
                 <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
             </TouchableOpacity>
             {loading && (
-                <ActivityIndicator size="large" color="#E15252" style={styles.activityIndicator} />
+                <ActivityIndicator size="large" color="#2E7D32" style={styles.activityIndicator} />
             )}
         </ScrollView>
     );
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 10,
-        color: '#E15252',
+        color: '##2E7D32',
         textAlign: 'left',
         borderBottomWidth: 1,
         borderBottomColor: '#ccc',
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     checkboxActive: {
-        backgroundColor: '#E15252',
+        backgroundColor: '#2E7D32',
         borderRadius: 4,
     },
     checkboxLabel: {
@@ -662,7 +662,7 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     radioActive: {
-        backgroundColor: '#E15252',
+        backgroundColor: '#2E7D32',
         borderRadius: 6,
     },
     radioLabel: {
@@ -670,7 +670,7 @@ const styles = StyleSheet.create({
         color: '#333',
     },
     button: {
-        backgroundColor: '#E15252',
+        backgroundColor: '#2E7D32',
         paddingVertical: 12,
         borderRadius: 10,
         marginTop: 15,
@@ -726,7 +726,7 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: 5,
         right: 5,
-        backgroundColor: 'rgba(225, 82, 82, 0.8)',
+        backgroundColor: '#2E7D32',
         borderRadius: 5,
         paddingHorizontal: 8,
         paddingVertical: 4,

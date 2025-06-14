@@ -1,10 +1,46 @@
+// src/screens/Home.js
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native'; // <--- Quitamos Alert
 import { useNavigation } from '@react-navigation/native';
 
+import { getAuth, signOut } from 'firebase/auth';
+import appMoscasSAG from '../../credenciales'; // ¡Ruta confirmada!
+
+const auth = getAuth(appMoscasSAG);
 
 export default function Home() {
-  const navigation = useNavigation()
+  const navigation = useNavigation();
+
+  const handleLogout = async () => {
+    console.log("¡Botón 'Cerrar Sesión' PRESIONADO! (Inicio de handleLogout)");
+
+    // *** CAMBIO CLAVE: Llama directamente a la lógica de cierre de sesión ***
+    // Ya no usamos Alert.alert para depurar el problema de la alerta en web.
+    console.log("handleLogout: Intentando signOut DIRECTAMENTE (sin alerta de confirmación)...");
+    try {
+      if (!auth) {
+        console.error("handleLogout: La instancia de autenticación (auth) no está definida.");
+        // Podrías poner un alert nativo de navegador aquí para web si quieres
+        alert("Error: No se pudo inicializar la autenticación. Por favor, reinicia la app.");
+        return;
+      }
+
+      const currentUserBeforeLogout = auth.currentUser;
+      console.log("handleLogout: Usuario actual ANTES de signOut:", currentUserBeforeLogout ? currentUserBeforeLogout.email : "Ninguno");
+
+      await signOut(auth); // Ejecuta el cierre de sesión de Firebase
+      console.log("handleLogout: Llamada a signOut() completada.");
+
+      const currentUserAfterLogout = auth.currentUser;
+      console.log("handleLogout: Usuario actual DESPUÉS de signOut:", currentUserAfterLogout ? currentUserAfterLogout.email : "Ninguno (se espera)");
+
+    } catch (error) {
+      console.error("handleLogout: Error al cerrar sesión:", error.code, error.message);
+      // Podrías poner un alert nativo de navegador aquí para web si quieres
+      alert(`Error: No se pudo cerrar la sesión: ${error.message}.`);
+    }
+    // *** FIN CAMBIO CLAVE ***
+  };
 
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
@@ -22,21 +58,23 @@ export default function Home() {
         <Text style={styles.buttonText}>📄 Listado de Fichas</Text>
       </TouchableOpacity>
 
-      {/* Nuevo botón: Gestión de Usuarios */}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('GestionUsuarios')}>
         <Text style={styles.buttonText}>👥 Gestión de Usuarios</Text>
       </TouchableOpacity>
 
-      {/* Nuevo botón: Papelera */}
       <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Papelera')}>
         <Text style={styles.buttonText}>🗑️ Papelera</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('')}> {/* Asume que 'Configuracion' será el nombre de la ruta */}
+      <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('Configuracion')}>
         <Text style={styles.buttonText}>⚙️ Configuración</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity style={[styles.button, styles.logoutButton]} onPress={handleLogout}>
+        <Text style={styles.buttonText}>🚪 Cerrar Sesión</Text>
+      </TouchableOpacity>
     </ScrollView>
-  )
+  );
 }
 
 const styles = StyleSheet.create({
@@ -54,7 +92,7 @@ const styles = StyleSheet.create({
     marginBottom: 30,
   },
   button: {
-    backgroundColor: '#E15252',
+    backgroundColor: '#2E7D32', // Verde SAG
     paddingVertical: 18,
     paddingHorizontal: 25,
     borderRadius: 12,
@@ -73,4 +111,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-})
+  logoutButton: {
+    backgroundColor: '#6c757d', // Gris para diferenciarlo
+    marginTop: 30,
+  },
+});

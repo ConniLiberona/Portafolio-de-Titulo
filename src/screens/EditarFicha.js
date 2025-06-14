@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 10,
     marginBottom: 20,
-    color: '#E15252',
+    color: '#2E7D32',
     textAlign: 'center',
   },
   sectionTitle: {
@@ -511,7 +511,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginTop: 20,
     marginBottom: 10,
-    color: '#E15252',
+    color: '#2E7D32',
     textAlign: 'left',
     borderBottomWidth: 1,
     borderBottomColor: '#ccc',
@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   checkboxActive: {
-    backgroundColor: '#E15252',
+    backgroundColor: '#2E7D32',
     borderRadius: 4,
   },
   checkboxLabel: {
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   radioActive: {
-    backgroundColor: '#E15252',
+    backgroundColor: '#2E7D32',
     borderRadius: 6,
   },
   radioLabel: {
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   button: {
-    backgroundColor: '#E15252',
+    backgroundColor: '#2E7D32',
     paddingVertical: 12,
     borderRadius: 10,
     marginTop: 15,

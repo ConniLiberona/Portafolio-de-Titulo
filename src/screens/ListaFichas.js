@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     fontSize: 26,
     fontWeight: 'bold',
     marginBottom: 25,
-    color: '#E15252',
+    color: '#2E7D32',
     textAlign: 'center',
   },
   fichaItem: {
@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     marginBottom: 15,
     borderLeftWidth: 5,
-    borderLeftColor: '#E15252',
+    borderLeftColor: '#2E7D32',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
