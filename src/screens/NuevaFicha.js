@@ -1,3 +1,4 @@
+// src/screens/NuevaFicha.js
 import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
@@ -172,7 +173,7 @@ export default function NuevaFicha() {
         } else {
             console.warn("Fecha seleccionada no válida en web:", date);
         }
-        setIsDatePickerWebOpen(false);
+        setIsDatePickerWebOpen(false); // Cierra el datepicker al seleccionar una fecha
     };
 
     const saveFicha = async () => {
@@ -206,7 +207,12 @@ export default function NuevaFicha() {
         }
 
         setLoading(true);
-        Alert.alert('Guardando...', 'Guardando ficha, por favor espera.', [{ text: 'OK', onPress: () => console.log('Alerta de guardado cerrada.') }]);
+        // Usar alert nativo o modal personalizado para web
+        if (Platform.OS === 'web') {
+            alert('Guardando ficha, por favor espera.');
+        } else {
+            Alert.alert('Guardando...', 'Guardando ficha, por favor espera.', [{ text: 'OK', onPress: () => console.log('Alerta de guardado cerrada.') }]);
+        }
         console.log('Estado de carga activado.');
 
         let imageUrl = null;
@@ -215,14 +221,24 @@ export default function NuevaFicha() {
                 imageUrl = await uploadImage(image);
                 if (!imageUrl) {
                     console.error('La URL de la imagen es nula después de intentar subirla.');
-                    Alert.alert('Error', 'No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+                    // Usar alert nativo para web
+                    if (Platform.OS === 'web') {
+                        alert('Error: No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+                    } else {
+                        Alert.alert('Error', 'No se pudo obtener la URL de la imagen. La ficha no se guardará.');
+                    }
                     setLoading(false);
                     return;
                 }
                 console.log('URL de la imagen para la ficha:', imageUrl);
             } catch (uploadError) {
                 console.error('Error crítico al subir la imagen en saveFicha:', uploadError);
-                Alert.alert('Error', 'Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
+                // Usar alert nativo para web
+                if (Platform.OS === 'web') {
+                    alert('Error: Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
+                } else {
+                    Alert.alert('Error', 'Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
+                }
                 setLoading(false);
                 return;
             }
@@ -256,7 +272,12 @@ export default function NuevaFicha() {
             const docRef = await addDoc(collection(db, 'fichas'), dataToSave);
 
             console.log('Documento escrito con ID: ', docRef.id);
-            Alert.alert('Éxito', 'Ficha guardada correctamente.');
+            // Usar alert nativo para web
+            if (Platform.OS === 'web') {
+                alert('Ficha guardada correctamente.');
+            } else {
+                Alert.alert('Éxito', 'Ficha guardada correctamente.');
+            }
 
             setState(initialState);
             setImage(null);
@@ -267,7 +288,12 @@ export default function NuevaFicha() {
 
         } catch (error) {
             console.error('Error al guardar la ficha en Firestore:', error);
-            Alert.alert('Error', `No se pudo guardar la ficha: ${error.message || 'Error desconocido'}`);
+            // Usar alert nativo para web
+            if (Platform.OS === 'web') {
+                alert(`Error: No se pudo guardar la ficha: ${error.message || 'Error desconocido'}`);
+            } else {
+                Alert.alert('Error', `No se pudo guardar la ficha: ${error.message || 'Error desconocido'}`);
+            }
         } finally {
             setLoading(false);
             console.log('Proceso de guardado de ficha finalizado. Estado de carga desactivado.');
@@ -295,7 +321,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'region')}
                         value={state.region}
                         placeholder="Ingrese Región"
-                        placeholderTextColor="#888" // Color del placeholder para la Región
+                        placeholderTextColor="#888"
                         keyboardType="numeric"
                     />
                 </View>
@@ -306,7 +332,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'oficina')}
                         value={state.oficina}
                         placeholder="Ingrese Oficina"
-                        placeholderTextColor="#888" // Color del placeholder para la Oficina
+                        placeholderTextColor="#888"
                     />
                 </View>
             </View>
@@ -319,7 +345,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'cuadrante')}
                         value={state.cuadrante}
                         placeholder="Ingrese Cuadrante"
-                        placeholderTextColor="#888" // Color del placeholder para el Cuadrante
+                        placeholderTextColor="#888"
                         keyboardType="numeric"
                     />
                 </View>
@@ -330,7 +356,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'subcuadrante')}
                         value={state.subcuadrante}
                         placeholder="Ingrese Subcuadrante"
-                        placeholderTextColor="#888" // Color del placeholder para el Subcuadrante
+                        placeholderTextColor="#888"
                         keyboardType="numeric"
                     />
                 </View>
@@ -343,7 +369,7 @@ export default function NuevaFicha() {
                     onChangeText={(value) => handleChangeText(value, 'ruta')}
                     value={state.ruta}
                     placeholder="Ingrese Ruta"
-                    placeholderTextColor="#888" // Color del placeholder para la Ruta
+                    placeholderTextColor="#888"
                 />
             </View>
 
@@ -355,7 +381,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'n_trampa')}
                         value={state.n_trampa}
                         placeholder="Ingrese N° Trampa"
-                        placeholderTextColor="#888" // Color del placeholder para el N° Trampa
+                        placeholderTextColor="#888"
                         keyboardType="numeric"
                     />
                 </View>
@@ -381,6 +407,12 @@ export default function NuevaFicha() {
                 <TouchableOpacity
                     style={styles.checkboxContainer}
                     onPress={() => handleCheckboxChange('condicion_temporal')}
+                    onPress={() => {
+                        handleCheckboxChange('condicion_temporal');
+                        if (Platform.OS === 'web' && isDatePickerWebOpen) {
+                            setIsDatePickerWebOpen(false); // Cierra el datepicker si un radio button es presionado mientras está abierto
+                        }
+                    }}
                 >
                     <View style={[styles.checkbox, state.condicion_temporal && styles.checkboxActive]} />
                     <Text style={styles.checkboxLabel}>Temporal</Text>
@@ -413,24 +445,38 @@ export default function NuevaFicha() {
                             selected={state.fecha}
                             onChange={onWebDateChange}
                             dateFormat="dd/MM/yyyy"
-                            customInput={<TextInput style={styles.inputDatePickerWeb} placeholder="DD/MM/AAAA" placeholderTextColor="#888" />} // Color del placeholder para la Fecha (Web)
-                            popperPlacement="bottom-start"
+                            customInput={<TextInput style={styles.inputDatePickerWeb} placeholder="DD/MM/AAAA" placeholderTextColor="#888" />}
+                            // --- AJUSTES AQUI PARA LA POSICIÓN ---
+                            popperPlacement="bottom" // Prueba con 'bottom', 'auto', 'right-start'
                             popperModifiers={[
                                 {
                                     name: 'offset',
                                     options: {
-                                        offset: [0, 5],
+                                        offset: [0, 5], // [horizontal, vertical]. Ajusta el segundo valor si el calendario está muy pegado.
                                     },
                                 },
                                 {
-                                    name: 'flip',
+                                    name: 'flip', // Permite que el calendario se "voltee" si no hay espacio
                                     options: {
-                                        fallbackPlacements: ['top-start', 'bottom-end'],
+                                        fallbackPlacements: ['top', 'top-start', 'bottom-start'],
                                     },
                                 },
+                                {
+                                    name: 'preventOverflow', // Evita que se salga de la pantalla
+                                    options: {
+                                        enabled: true,
+                                    },
+                                },
+                                {
+                                    name: 'hide', // Esconde el popper si no hay espacio
+                                    enabled: false, // Desactivado para depurar si quieres, si no, déjalo true
+                                },
                             ]}
+                            // --- FIN AJUSTES ---
                             onCalendarOpen={() => setIsDatePickerWebOpen(true)}
                             onCalendarClose={() => setIsDatePickerWebOpen(false)}
+                            // Para asegurarse de que el calendario se cierra al hacer clic fuera
+                            onClickOutside={() => setIsDatePickerWebOpen(false)}
                         />
                     ) : (
                         <TouchableOpacity onPress={handleShowNativeDatePicker} style={styles.inputTouchable}>
@@ -438,7 +484,7 @@ export default function NuevaFicha() {
                                 style={styles.input}
                                 value={formatDate(state.fecha)}
                                 placeholder="DD/MM/AAAA"
-                                placeholderTextColor="#888" // Color del placeholder para la Fecha (Native)
+                                placeholderTextColor="#888"
                                 editable={false}
                             />
                         </TouchableOpacity>
@@ -461,7 +507,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'actividad')}
                         value={state.actividad}
                         placeholder="Ingrese Actividad"
-                        placeholderTextColor="#888" // Color del placeholder para la Actividad
+                        placeholderTextColor="#888"
                     />
                 </View>
             </View>
@@ -474,7 +520,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'prospector')}
                         value={state.prospector}
                         placeholder="Ingrese Prospector"
-                        placeholderTextColor="#888" // Color del placeholder para el Prospector
+                        placeholderTextColor="#888"
                     />
                 </View>
                 <View style={styles.item}>
@@ -484,7 +530,7 @@ export default function NuevaFicha() {
                         onChangeText={(value) => handleChangeText(value, 'localizacion')}
                         value={state.localizacion}
                         placeholder="Ingrese Localización"
-                        placeholderTextColor="#888" // Color del placeholder para la Localización
+                        placeholderTextColor="#888"
                     />
                 </View>
             </View>
@@ -496,7 +542,7 @@ export default function NuevaFicha() {
                     onChangeText={(value) => handleChangeText(value, 'observaciones')}
                     value={state.observaciones}
                     placeholder="Ingrese Observaciones"
-                    placeholderTextColor="#888" // Color del placeholder para Observaciones
+                    placeholderTextColor="#888"
                     multiline={true}
                     numberOfLines={4}
                 />
@@ -508,7 +554,7 @@ export default function NuevaFicha() {
                 <Text style={styles.optionalText}>(Opcional)</Text>
             </Text>
             <View style={styles.imagePickerContainer}>
-                <Button title="Seleccionar Imagen" onPress={pickImage} color="#E15252" disabled={loading} />
+                <Button title="Seleccionar Imagen" onPress={pickImage} color="#2E7D32" disabled={loading} />
                 {image && (
                     <View style={styles.imagePreviewContainer}>
                         <Image source={{ uri: image }} style={styles.imagePreview} resizeMode="contain" />
@@ -542,7 +588,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 10,
-        color: '##2E7D32',
+        color: '#2E7D32', // Corregido el doble hash aquí
         textAlign: 'left',
         borderBottomWidth: 1,
         borderBottomColor: '#ccc',
@@ -581,6 +627,8 @@ const styles = StyleSheet.create({
     },
     datePickerContainerWeb: {
         position: 'relative',
+        // Esto es importante para que el popper se posicione correctamente en relación con este contenedor
+        zIndex: 10, // Asegura que el datepicker aparezca por encima de otros elementos
     },
     inputDatePickerWeb: {
         backgroundColor: '#fff',
@@ -594,8 +642,9 @@ const styles = StyleSheet.create({
         height: 38,
         width: '100%',
     },
+    // Aumenté el margen un poco para darle más espacio
     datePickerOpenMargin: {
-        marginBottom: 220,
+        marginBottom: 250, // Ajusta este valor si el calendario sigue chocando con otros elementos
     },
     fullWidthItem: {
         width: '100%',
@@ -683,7 +732,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         textAlign: 'center',
     },
-    // Estilos para la sección de imagen
     imagePickerContainer: {
         width: '100%',
         alignItems: 'center',
@@ -736,10 +784,9 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    // Nuevo estilo para el texto "(Opcional)"
     optionalText: {
-        fontSize: 14, // Un poco más pequeño que el título principal
-        color: '#888', // Un color gris más suave para que sea menos prominente
-        fontWeight: 'normal', // Asegura que no sea bold, heredado del parent
+        fontSize: 14,
+        color: '#888',
+        fontWeight: 'normal',
     },
 });
