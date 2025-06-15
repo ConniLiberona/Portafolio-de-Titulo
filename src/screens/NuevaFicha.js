@@ -16,7 +16,7 @@ import {
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native'; // Mantener esto si `NuevaFicha` también se usa independientemente
 import * as ImagePicker from 'expo-image-picker';
 
 // Importaciones condicionales para el DatePicker
@@ -34,14 +34,15 @@ if (Platform.OS === 'web') {
 const db = getFirestore(appMoscasSAG);
 const storage = getStorage(appMoscasSAG);
 
-export default function NuevaFicha() {
+// Añadimos props para recibir datos iniciales y una función para cerrar
+export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
     const initialState = {
         region: '',
         oficina: '',
         cuadrante: '',
         subcuadrante: '',
         ruta: '',
-        n_trampa: '',
+        n_trampa: initialNTrampa ? String(initialNTrampa) : '', // Usar prop si existe
         condicion_fija: false,
         condicion_movil: false,
         condicion_temporal: false,
@@ -49,7 +50,7 @@ export default function NuevaFicha() {
         fecha: new Date(),
         actividad: '',
         prospector: '',
-        localizacion: '',
+        localizacion: initialCoords ? `Lat: ${initialCoords.lat.toFixed(6)}, Lng: ${initialCoords.lng.toFixed(6)}` : '', // Usar coords si existen
         observaciones: '',
         deleted: false,
         deletedAt: null,
@@ -57,7 +58,7 @@ export default function NuevaFicha() {
 
     const [state, setState] = useState(initialState);
     const [loading, setLoading] = useState(false);
-    const navigation = useNavigation();
+    const navigation = useNavigation(); // Esto solo se usará si NuevaFicha es una pantalla de navegación
 
     const [image, setImage] = useState(null);
 
@@ -67,6 +68,16 @@ export default function NuevaFicha() {
     useEffect(() => {
         console.log('El estado de la imagen ha cambiado a:', image ? 'Imagen seleccionada' : 'No hay imagen');
     }, [image]);
+
+    // Usar useEffect para actualizar el estado si las props iniciales cambian
+    useEffect(() => {
+        setState(prevState => ({
+            ...prevState,
+            n_trampa: initialNTrampa ? String(initialNTrampa) : prevState.n_trampa,
+            localizacion: initialCoords ? `Lat: ${initialCoords.lat.toFixed(6)}, Lng: ${initialCoords.lng.toFixed(6)}` : prevState.localizacion,
+        }));
+    }, [initialNTrampa, initialCoords]);
+
 
     const pickImage = async () => {
         console.log('--- Inicando proceso de selección de imagen ---');
@@ -207,7 +218,6 @@ export default function NuevaFicha() {
         }
 
         setLoading(true);
-        // Usar alert nativo o modal personalizado para web
         if (Platform.OS === 'web') {
             alert('Guardando ficha, por favor espera.');
         } else {
@@ -221,7 +231,6 @@ export default function NuevaFicha() {
                 imageUrl = await uploadImage(image);
                 if (!imageUrl) {
                     console.error('La URL de la imagen es nula después de intentar subirla.');
-                    // Usar alert nativo para web
                     if (Platform.OS === 'web') {
                         alert('Error: No se pudo obtener la URL de la imagen. La ficha no se guardará.');
                     } else {
@@ -233,7 +242,6 @@ export default function NuevaFicha() {
                 console.log('URL de la imagen para la ficha:', imageUrl);
             } catch (uploadError) {
                 console.error('Error crítico al subir la imagen en saveFicha:', uploadError);
-                // Usar alert nativo para web
                 if (Platform.OS === 'web') {
                     alert('Error: Ocurrió un problema irrecuperable al subir la imagen. La ficha no se guardará.');
                 } else {
@@ -272,23 +280,27 @@ export default function NuevaFicha() {
             const docRef = await addDoc(collection(db, 'fichas'), dataToSave);
 
             console.log('Documento escrito con ID: ', docRef.id);
-            // Usar alert nativo para web
             if (Platform.OS === 'web') {
                 alert('Ficha guardada correctamente.');
             } else {
                 Alert.alert('Éxito', 'Ficha guardada correctamente.');
             }
 
-            setState(initialState);
+            setState(initialState); // Resetear estado
             setImage(null);
             console.log('Formulario y estado de imagen limpiados.');
 
-            navigation.navigate('Home');
-            console.log('Navegando a la pantalla Home.');
+            // Si se pasa una función onClose, úsala para cerrar la modal/componente
+            if (onClose) {
+                onClose();
+            } else {
+                // De lo contrario, si no hay onClose, navegar a Home (comportamiento original)
+                navigation.navigate('Home');
+                console.log('Navegando a la pantalla Home.');
+            }
 
         } catch (error) {
             console.error('Error al guardar la ficha en Firestore:', error);
-            // Usar alert nativo para web
             if (Platform.OS === 'web') {
                 alert(`Error: No se pudo guardar la ficha: ${error.message || 'Error desconocido'}`);
             } else {
@@ -383,6 +395,8 @@ export default function NuevaFicha() {
                         placeholder="Ingrese N° Trampa"
                         placeholderTextColor="#888"
                         keyboardType="numeric"
+                        maxLength={9} // Asegúrate de que esta validación también esté aquí
+                        editable={!initialNTrampa} // Si viene de PinCreationModal, no debería ser editable
                     />
                 </View>
                 <View style={{ width: '48%' }} />
@@ -406,11 +420,10 @@ export default function NuevaFicha() {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={styles.checkboxContainer}
-                    onPress={() => handleCheckboxChange('condicion_temporal')}
                     onPress={() => {
                         handleCheckboxChange('condicion_temporal');
                         if (Platform.OS === 'web' && isDatePickerWebOpen) {
-                            setIsDatePickerWebOpen(false); // Cierra el datepicker si un radio button es presionado mientras está abierto
+                            setIsDatePickerWebOpen(false);
                         }
                     }}
                 >
@@ -446,36 +459,33 @@ export default function NuevaFicha() {
                             onChange={onWebDateChange}
                             dateFormat="dd/MM/yyyy"
                             customInput={<TextInput style={styles.inputDatePickerWeb} placeholder="DD/MM/AAAA" placeholderTextColor="#888" />}
-                            // --- AJUSTES AQUI PARA LA POSICIÓN ---
-                            popperPlacement="bottom" // Prueba con 'bottom', 'auto', 'right-start'
+                            popperPlacement="bottom"
                             popperModifiers={[
                                 {
                                     name: 'offset',
                                     options: {
-                                        offset: [0, 5], // [horizontal, vertical]. Ajusta el segundo valor si el calendario está muy pegado.
+                                        offset: [0, 5],
                                     },
                                 },
                                 {
-                                    name: 'flip', // Permite que el calendario se "voltee" si no hay espacio
+                                    name: 'flip',
                                     options: {
                                         fallbackPlacements: ['top', 'top-start', 'bottom-start'],
                                     },
                                 },
                                 {
-                                    name: 'preventOverflow', // Evita que se salga de la pantalla
+                                    name: 'preventOverflow',
                                     options: {
                                         enabled: true,
                                     },
                                 },
                                 {
-                                    name: 'hide', // Esconde el popper si no hay espacio
-                                    enabled: false, // Desactivado para depurar si quieres, si no, déjalo true
+                                    name: 'hide',
+                                    enabled: false,
                                 },
                             ]}
-                            // --- FIN AJUSTES ---
                             onCalendarOpen={() => setIsDatePickerWebOpen(true)}
                             onCalendarClose={() => setIsDatePickerWebOpen(false)}
-                            // Para asegurarse de que el calendario se cierra al hacer clic fuera
                             onClickOutside={() => setIsDatePickerWebOpen(false)}
                         />
                     ) : (
@@ -531,6 +541,7 @@ export default function NuevaFicha() {
                         value={state.localizacion}
                         placeholder="Ingrese Localización"
                         placeholderTextColor="#888"
+                        editable={!initialCoords} // Si viene de PinCreationModal, no debería ser editable
                     />
                 </View>
             </View>
@@ -569,6 +580,11 @@ export default function NuevaFicha() {
             <TouchableOpacity style={styles.button} onPress={saveFicha} disabled={loading}>
                 <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
             </TouchableOpacity>
+            {onClose && ( // Botón para cerrar si se le pasa la prop onClose
+                <TouchableOpacity style={[styles.button, styles.buttonCloseFicha]} onPress={onClose} disabled={loading}>
+                    <Text style={styles.buttonText}>Cerrar Formulario</Text>
+                </TouchableOpacity>
+            )}
             {loading && (
                 <ActivityIndicator size="large" color="#2E7D32" style={styles.activityIndicator} />
             )}
@@ -588,7 +604,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 20,
         marginBottom: 10,
-        color: '#2E7D32', // Corregido el doble hash aquí
+        color: '#2E7D32',
         textAlign: 'left',
         borderBottomWidth: 1,
         borderBottomColor: '#ccc',
@@ -627,8 +643,7 @@ const styles = StyleSheet.create({
     },
     datePickerContainerWeb: {
         position: 'relative',
-        // Esto es importante para que el popper se posicione correctamente en relación con este contenedor
-        zIndex: 10, // Asegura que el datepicker aparezca por encima de otros elementos
+        zIndex: 10,
     },
     inputDatePickerWeb: {
         backgroundColor: '#fff',
@@ -642,9 +657,8 @@ const styles = StyleSheet.create({
         height: 38,
         width: '100%',
     },
-    // Aumenté el margen un poco para darle más espacio
     datePickerOpenMargin: {
-        marginBottom: 250, // Ajusta este valor si el calendario sigue chocando con otros elementos
+        marginBottom: 250,
     },
     fullWidthItem: {
         width: '100%',
@@ -725,6 +739,10 @@ const styles = StyleSheet.create({
         marginTop: 15,
         alignItems: 'center',
         justifyContent: 'center',
+    },
+    buttonCloseFicha: { // Estilo para el nuevo botón de cerrar en NuevaFicha
+        backgroundColor: '#6c757d', // Un color gris para "cerrar"
+        marginTop: 10,
     },
     buttonText: {
         color: 'white',

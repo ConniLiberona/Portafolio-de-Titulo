@@ -1,12 +1,14 @@
-// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BUSCADOR DE PIN Y BUSCADOR ABAJO)
-import React, { useState, useEffect, useRef } from 'react'; // ¡Importa useRef!
-import { StyleSheet, View, Text, Alert, TouchableOpacity, TextInput } from 'react-native'; // ¡Importa TextInput!
+// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BUSCADOR DE PIN Y BUSCADOR ABAJO Y MODAL INTERNO)
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, TextInput } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { useNavigation } from '@react-navigation/native';
 
-import PinCreationModal from './PinCreationModal';
+import PinCreationModal from './PinCreationModal'; // <-- RUTA CORREGIDA
+import ConfirmationModal from './ConfirmationModal'; // <-- RUTA CORREGIDA
+import SuccessModal from './SuccessModal'; // <-- RUTA CORREGIDA
 
 // Importa Firebase y Firestore
 import { getFirestore, collection, addDoc, getDocs, query, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
@@ -106,9 +108,6 @@ function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs }) {
       map.flyTo(targetLocation, map.getZoom() || 15, {
         duration: 1.5, // Duración de la animación en segundos
       });
-      // Importante: Reiniciar targetLocation después de usarlo para evitar animaciones repetidas
-      // Esto se haría en el padre a través de una función pasada como prop si este componente necesitara manejarlo.
-      // Por ahora, el padre se encargará de resetearlo.
     }
   }, [map, targetLocation]);
 
@@ -116,8 +115,6 @@ function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs }) {
   useEffect(() => {
     if (markerToOpenId && markerRefs.current[markerToOpenId]) {
       markerRefs.current[markerToOpenId].openPopup();
-      // Importante: Reiniciar markerToOpenId después de usarlo
-      // Esto se haría en el padre a través de una función pasada como prop si este componente necesitara manejarlo.
     }
   }, [map, markerToOpenId, markerRefs]);
 
@@ -145,7 +142,40 @@ export default function MapScreenWeb() {
   const [markerToOpenId, setMarkerToOpenId] = useState(null); // Para abrir el popup del marcador
   const markerRefs = useRef({}); // Para almacenar referencias a los objetos Leaflet Marker
 
+  // Estados para el modal de confirmación de eliminación de TRAMPA
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
+  const [pinToDeleteId, setPinToDeleteId] = useState(null);
+
+  // <-- NUEVOS ESTADOS PARA LOS MODALES DE ÉXITO Y ERROR GENERAL -->
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  // <-- FIN NUEVOS ESTADOS -->
+
   const navigation = useNavigation();
+
+  // Funciones para manejar los modales de éxito y error
+  const openSuccessModal = (message) => {
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
+  };
+
+  const closeSuccessModal = () => {
+    setShowSuccessModal(false);
+    setSuccessMessage('');
+  };
+
+  const openErrorModal = (message) => {
+    setErrorMessage(message);
+    setShowErrorModal(true);
+  };
+
+  const closeErrorModal = () => {
+    setShowErrorModal(false);
+    setErrorMessage('');
+  };
+
 
   // Función para abrir el modal al hacer clic en el mapa
   const handleMapClickAndShowModal = (coords) => {
@@ -153,7 +183,7 @@ export default function MapScreenWeb() {
     setIsModalVisible(true);
   };
 
-  // Función para cerrar el modal
+  // Función para cerrar el modal de creación de pin
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setCurrentClickCoords(null);
@@ -177,7 +207,7 @@ export default function MapScreenWeb() {
       console.log(`Fichas encontradas para ${n_trampa}:`, fichas);
     } catch (error) {
       console.error("Error al cargar fichas para la trampa: ", error);
-      Alert.alert('Error', 'No se pudieron cargar las fichas asociadas.');
+      openErrorModal('No se pudieron cargar las fichas asociadas.'); // <-- Usa tu modal de error
       setAssociatedFichas([]);
     } finally {
       setLoadingFichas(false);
@@ -207,7 +237,7 @@ export default function MapScreenWeb() {
         retirada: (pinData.estado === 'Inactiva/Retirada'),
         estado: pinData.estado,
       });
-      Alert.alert('¡Éxito!', 'Trampa guardada en Firestore correctamente.');
+      openSuccessModal('Trampa guardada correctamente.'); // <-- ¡MENSAJE ACTUALIZADO AQUÍ!
       setMarkers(prevMarkers => [...prevMarkers, {
         id: docRef.id,
         ...pinData,
@@ -220,7 +250,7 @@ export default function MapScreenWeb() {
       console.log("Pin añadido al estado local:", { id: docRef.id, ...pinData, n_trampa: nTrampaToSave });
     } catch (error) {
       console.error("Error al guardar la trampa en Firestore: ", error);
-      Alert.alert('Error', 'No se pudo guardar la trampa en Firestore. Revisa tu conexión o permisos.');
+      openErrorModal('No se pudo guardar la trampa en Firestore. Revisa tu conexión o permisos.'); // <-- Usa tu modal de error
     }
   };
 
@@ -258,44 +288,52 @@ export default function MapScreenWeb() {
           return marker;
         })
       );
-      Alert.alert('¡Éxito!', `Estado de la trampa actualizado a: ${newEstado}`);
+      openSuccessModal(`Estado de la trampa actualizado a: ${newEstado}`); // <-- Usa tu modal de éxito
     } catch (error) {
       console.error("Error al actualizar el estado de la trampa: ", error);
-      Alert.alert('Error', 'No se pudo actualizar el estado de la trampa.');
+      openErrorModal('No se pudo actualizar el estado de la trampa.'); // <-- Usa tu modal de error
     }
   };
 
-  // Función para eliminar un marcador
-  const handleDeletePin = async (pinId) => {
-    Alert.alert(
-      "Confirmar Eliminación",
-      "¿Estás seguro de que quieres eliminar esta trampa? Esta acción no se puede deshacer.",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        {
-          text: "Eliminar",
-          onPress: async () => {
-            try {
-              await deleteDoc(doc(db, "pins", pinId));
-              setMarkers(prevMarkers => prevMarkers.filter(marker => marker.id !== pinId));
-              Alert.alert("¡Éxito!", "Trampa eliminada correctamente.");
-            } catch (error) {
-              console.error("Error al eliminar la trampa: ", error);
-              Alert.alert("Error", "No se pudo eliminar la trampa.");
-            }
-          }
-        }
-      ]
-    );
+  // FUNCIÓN DE ELIMINACIÓN REESTRUCTURADA PARA USAR EL MODAL INTERNO
+  // Función para solicitar confirmación de eliminación (abre el modal)
+  const handleDeletePin = (pinId) => {
+    console.log("handleDeletePin llamado para pinId:", pinId);
+    setPinToDeleteId(pinId); // Guarda el ID del pin a eliminar
+    setShowConfirmDeleteModal(true); // Abre tu modal de confirmación
+  };
+
+  // Función que se llama cuando el usuario confirma la eliminación en el modal
+  const confirmDelete = async () => {
+    if (!pinToDeleteId) return;
+
+    console.log("Confirmada eliminación de pinId:", pinToDeleteId);
+    try {
+      await deleteDoc(doc(db, "pins", pinToDeleteId));
+      console.log("Pin eliminado de Firestore.");
+      setMarkers(prevMarkers => prevMarkers.filter(marker => marker.id !== pinToDeleteId));
+      console.log("Pin eliminado del estado local.");
+      openSuccessModal("Trampa eliminada correctamente."); // <-- ¡USA TU MODAL DE ÉXITO AQUÍ!
+    } catch (error) {
+      console.error("Error en confirmDelete al eliminar la trampa: ", error);
+      openErrorModal("No se pudo eliminar la trampa."); // <-- Usa tu modal de error
+    } finally {
+      setShowConfirmDeleteModal(false);
+      setPinToDeleteId(null);
+    }
+  };
+
+  // Función que se llama cuando el usuario cancela la eliminación en el modal
+  const cancelDelete = () => {
+    console.log("Eliminación cancelada.");
+    setShowConfirmDeleteModal(false);
+    setPinToDeleteId(null);
   };
 
   // Función para manejar la búsqueda de pines
-  const handleSearchPin = async () => { // ¡CAMBIO: Ahora es async!
+  const handleSearchPin = async () => {
     if (!searchText) {
-      Alert.alert('Búsqueda', 'Por favor, introduce un número de trampa para buscar.');
+      openErrorModal('Por favor, introduce un número de trampa para buscar.'); // <-- Usa tu modal de error
       return;
     }
 
@@ -304,20 +342,14 @@ export default function MapScreenWeb() {
     );
 
     if (foundMarker) {
-      setTargetLocation([foundMarker.lat, foundMarker.lng]); // Establece la ubicación para que el mapa vuele
-      setMarkerToOpenId(foundMarker.id); // Establece el ID del marcador cuyo popup debe abrirse
-      setSearchText(''); // Limpia el campo de búsqueda
-
-      // *** INICIO DEL CAMBIO PRINCIPAL ***
-      // Llama a fetchFichasForTrampa directamente después de encontrar el marcador
-      // Esto asegura que las fichas se carguen cuando el popup se abre programáticamente.
-      await fetchFichasForTrampa(foundMarker.n_trampa); 
-      // *** FIN DEL CAMBIO PRINCIPAL ***
-
+      setTargetLocation([foundMarker.lat, foundMarker.lng]);
+      setMarkerToOpenId(foundMarker.id);
+      setSearchText('');
+      await fetchFichasForTrampa(foundMarker.n_trampa);
     } else {
-      Alert.alert('No Encontrado', `No se encontró ninguna trampa con el N°: "${searchText}"`);
-      setTargetLocation(null); // Resetea la ubicación objetivo
-      setMarkerToOpenId(null); // Resetea el marcador a abrir
+      openErrorModal(`No se encontró ninguna trampa con el N°: "${searchText}"`); // <-- Usa tu modal de error
+      setTargetLocation(null);
+      setMarkerToOpenId(null);
     }
   };
 
@@ -351,7 +383,6 @@ export default function MapScreenWeb() {
         const fetchedMarkers = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          // console.log("Datos del pin de Firestore:", data); // Log para depuración
 
           const nTrampaValue = (data.n_trampa !== undefined && data.n_trampa !== null)
                                ? data.n_trampa
@@ -383,10 +414,9 @@ export default function MapScreenWeb() {
           }
         });
         setMarkers(fetchedMarkers);
-        // console.log("Pines cargados:", fetchedMarkers);
       } catch (error) {
         console.error("Error al cargar las trampas de Firestore: ", error);
-        Alert.alert('Error de Carga', 'No se pudieron cargar las trampas existentes.');
+        openErrorModal('No se pudieron cargar las trampas existentes.'); // <-- Usa tu modal de error
       } finally {
         setLoadingMarkers(false);
       }
@@ -396,7 +426,6 @@ export default function MapScreenWeb() {
   }, []);
 
   // Reset targetLocation y markerToOpenId después de un tiempo para evitar re-triggers
-  // Puedes ajustar el tiempo según la duración de tu animación.
   useEffect(() => {
     if (targetLocation || markerToOpenId) {
       const timer = setTimeout(() => {
@@ -428,7 +457,6 @@ export default function MapScreenWeb() {
 
   return (
     <View style={styles.container}>
-      {/* El MapContainer va primero en el orden de renderizado si quieres que el searchContainer lo overlay */}
       <MapContainer center={[location.latitude, location.longitude]} zoom={13} style={styles.map}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -439,13 +467,11 @@ export default function MapScreenWeb() {
           <Popup>
             <div style={{ fontWeight: 'bold' }}>Estás aquí</div>
           </Popup>
-          {/* Este div style crea un marcador de círculo rojo para la ubicación del usuario */}
           <div style={styles.userMarker}></div>
         </Marker>
 
         <MapClickHandler setClickCoords={handleMapClickAndShowModal} />
 
-        {/* Componente que interactúa con el mapa para volar y abrir popups */}
         <MapInteractionHandler
           targetLocation={targetLocation}
           markerToOpenId={markerToOpenId}
@@ -457,9 +483,14 @@ export default function MapScreenWeb() {
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
             icon={pinIcons[marker.estado] || pinIcons['default']}
-            ref={(ref) => { markerRefs.current[marker.id] = ref; }} // Guarda la referencia al objeto Leaflet Marker
+            ref={(ref) => { markerRefs.current[marker.id] = ref; }}
             eventHandlers={{
-              popupopen: () => fetchFichasForTrampa(marker.n_trampa),
+              popupopen: (e) => {
+                // Previene que Leaflet capture los clics en el contenido del popup
+                L.DomEvent.disableClickPropagation(e.popup._contentNode);
+                L.DomEvent.disableScrollPropagation(e.popup._contentNode);
+                fetchFichasForTrampa(marker.n_trampa);
+              },
               popupclose: () => setAssociatedFichas([])
             }}
           >
@@ -494,13 +525,15 @@ export default function MapScreenWeb() {
                         border: 'none',
                         cursor: 'pointer',
                       }}
-                      onClick={() => handleChangePinState(marker.id, estadoKey)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Previene propagación extra
+                        handleChangePinState(marker.id, estadoKey);
+                      }}
                     >
                       {estadoKey.split('/')[0]}
                     </button>
                   ))}
                 </div>
-                {/* Sección para mostrar fichas asociadas */}
                 <div style={styles.fichasContainer}>
                   <div style={styles.actionLabel}>Fichas Asociadas ({loadingFichas ? 'Cargando...' : associatedFichas.length}):</div>
                   {loadingFichas ? (
@@ -511,9 +544,12 @@ export default function MapScreenWeb() {
                         <TouchableOpacity
                           key={ficha.id}
                           style={styles.fichaButton}
-                          onPress={() => handleGoToFichaDetail(ficha.id)}
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            handleGoToFichaDetail(ficha.id);
+                          }}
                         >
-                          <Text style={styles.fichaButtonText}>📄 Trampa {ficha.n_trampa}</Text> {/* Muestra n_trampa */}
+                          <Text style={styles.fichaButtonText}>📄 Trampa {ficha.n_trampa}</Text>
                           {ficha.fecha && (
                             <Text style={styles.fichaButtonDate}>
                               {ficha.fecha.toDate().toLocaleDateString()}
@@ -533,7 +569,10 @@ export default function MapScreenWeb() {
                     border: 'none',
                     cursor: 'pointer',
                   }}
-                  onClick={() => handleDeletePin(marker.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeletePin(marker.id);
+                  }}
                 >
                   Eliminar Trampa
                 </button>
@@ -550,8 +589,8 @@ export default function MapScreenWeb() {
           placeholder="Buscar por N° Trampa"
           value={searchText}
           onChangeText={setSearchText}
-          keyboardType="numeric" // Sugiere teclado numérico en móviles
-          onSubmitEditing={handleSearchPin} // Permite buscar al presionar Enter/Go
+          keyboardType="numeric"
+          onSubmitEditing={handleSearchPin}
         />
         <TouchableOpacity
           style={styles.searchButton}
@@ -569,6 +608,36 @@ export default function MapScreenWeb() {
           coords={currentClickCoords}
         />
       )}
+
+      {/* RENDERIZADO DEL MODAL DE CONFIRMACIÓN */}
+      <ConfirmationModal
+        visible={showConfirmDeleteModal}
+        title="Confirmar Eliminación"
+        message="¿Estás seguro de que quieres eliminar esta trampa? Esta acción no se puede deshacer."
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+
+      {/* <-- RENDERIZADO DEL NUEVO MODAL DE ÉXITO --> */}
+      <SuccessModal
+        visible={showSuccessModal}
+        message={successMessage}
+        onClose={closeSuccessModal}
+      />
+
+      {/* <-- RENDERIZADO DE UN POSIBLE MODAL DE ERROR GENERAL (similar a SuccessModal) --> */}
+      {/* Puedes crear un ErrorModal similar a SuccessModal si quieres un diseño específico para errores */}
+      {/* Por ahora, usaremos el mismo SuccessModal con un título de error si no quieres otro componente */}
+       <SuccessModal
+        visible={showErrorModal}
+        title="Error"
+        message={errorMessage}
+        onClose={closeErrorModal}
+        // Puedes pasar un prop de estilo adicional para cambiar el color del botón o título si reutilizas SuccessModal
+        // Por ejemplo, buttonColor="#dc3545", titleColor="#dc3545"
+      />
+      {/* <-- FIN RENDERIZADO DE MODALES DE ÉXITO/ERROR --> */}
+
     </View>
   );
 }
@@ -579,7 +648,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f0f0f0',
-    position: 'relative', // Importante para posicionar el searchContainer absolutamente
+    position: 'relative',
   },
   map: {
     width: '100%',
@@ -649,7 +718,10 @@ const styles = StyleSheet.create({
     marginBottom: '8px',
   },
   statusButton: {
-    padding: '5px 10px',
+    paddingTop: 5,
+    paddingBottom: 5,
+    paddingLeft: 10,
+    paddingRight: 10,
     borderRadius: '5px',
     margin: '3px',
     minWidth: '80px',
@@ -657,7 +729,10 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     backgroundColor: '#DC3545',
-    padding: '8px 15px',
+    paddingTop: 8,
+    paddingBottom: 8,
+    paddingLeft: 15,
+    paddingRight: 15,
     borderRadius: '8px',
     marginTop: '10px',
     display: 'flex',
@@ -696,6 +771,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    boxShadow: '0 0 5px rgba(0,0,0,0.1)',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease, transform 0.1s ease',
   },
@@ -711,28 +787,28 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  // --- Estilos ACTUALIZADOS para la funcionalidad de búsqueda (ahora abajo) ---
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 10,
     backgroundColor: '#fff',
-    borderTopWidth: 1, // Cambiado a borderTopWidth
-    borderTopColor: '#eee', // Cambiado a borderTopColor
-    position: 'absolute', // Posiciona el contenedor de búsqueda sobre el mapa
-    bottom: 10, // Distancia desde la parte inferior (cambiado de top)
+    borderTopWidth: 1,
+    borderTopColor: '#eee',
+    position: 'absolute',
+    bottom: 10,
     left: 10,
     right: 10,
-    zIndex: 1000, // Asegura que esté por encima del mapa
+    zIndex: 1000,
     borderRadius: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 }, // Sombra hacia arriba
+    shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.1,
     shadowRadius: 3,
     elevation: 3,
+    boxShadow: '0 -2px 3px rgba(0, 0, 0, 0.1)',
   },
   searchInput: {
-    flex: 1, // Hace que el input ocupe el espacio restante
+    flex: 1,
     height: 40,
     borderColor: '#ddd',
     borderWidth: 1,
@@ -742,7 +818,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   searchButton: {
-    backgroundColor: '#007bff', // Un azul estándar para el botón
+    backgroundColor: '#007bff',
     paddingVertical: 10,
     paddingHorizontal: 15,
     borderRadius: 5,
