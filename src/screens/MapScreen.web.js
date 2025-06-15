@@ -1,6 +1,6 @@
-// src/screens/MapScreen.web.js (ACTUALIZADO - CON BOTÓN "MI UBICACIÓN EXACTA")
+// src/screens/MapScreen.web.js (ACTUALIZADO - CON BOTÓN "MI UBICACIÓN EXACTA" Y MARCADOR DE USUARIO PARPADEANTE FUERA DEL ICONO)
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, Image, Alert } from 'react-native'; // Importa Alert e Image
+import { StyleSheet, View, Text, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -120,6 +120,65 @@ function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs }) {
 
   return null; // Este componente no renderiza nada visualmente
 }
+
+// NUEVO: Icono personalizado para la ubicación del usuario con animación de pulso que se expande
+const userLocationIcon = L.divIcon({
+  className: 'user-location-marker-container',
+  html: `
+    <style>
+      @keyframes pulse-outer {
+        0% {
+          transform: translate(-50%, -50%) scale(0.6);
+          opacity: 0.8;
+          border-width: 4px;
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(1.2);
+          opacity: 0.1;
+          border-width: 1px;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(0.6);
+          opacity: 0.8;
+          border-width: 4px;
+        }
+      }
+      .user-location-marker-dot {
+        background-color: #007bff; /* Azul sólido */
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        border: 2px solid white;
+        box-shadow: 0 0 5px rgba(0,0,0,0.3);
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); /* Centrar el punto */
+        z-index: 2;
+      }
+      .user-location-marker-pulse {
+        /* No es un color de fondo, es un borde que crece y se desvanece */
+        width: 40px; /* Tamaño máximo del pulso */
+        height: 40px;
+        border-radius: 50%;
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        /* El color del pulso ahora es el borde */
+        border: 4px solid rgba(0, 122, 255, 0.7);
+        animation: pulse-outer 2s infinite ease-out; /* Aplica la animación */
+        box-sizing: border-box; /* Para que el padding/borde no afecte el tamaño total */
+        z-index: 1;
+      }
+    </style>
+    <div class="user-location-marker-pulse"></div>
+    <div class="user-location-marker-dot"></div>
+  `,
+  iconSize: [40, 40], // Tamaño total del icono (para el contenedor), ajusta según el pulso máximo
+  iconAnchor: [20, 20], // Punto de anclaje (centro del icono)
+  popupAnchor: [0, -20] // Ajuste del popup
+});
+
 
 // Componente principal de la pantalla del mapa
 export default function MapScreenWeb() {
@@ -364,7 +423,6 @@ export default function MapScreenWeb() {
           };
           setLocation(newPos); // Actualiza el estado de la ubicación
           setTargetLocation([newPos.latitude, newPos.longitude]); // Centra el mapa
-          // setMapZoom(15); // Si quieres un zoom específico al ubicarte
           openSuccessModal("Mapa centrado en tu ubicación actual.");
         },
         (error) => {
@@ -482,13 +540,11 @@ export default function MapScreenWeb() {
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Marcador de la ubicación del usuario */}
-        <Marker position={[location.latitude, location.longitude]}>
+        {/* Marcador de la ubicación del usuario con el nuevo icono de pulso */}
+        <Marker position={[location.latitude, location.longitude]} icon={userLocationIcon}>
           <Popup>
             <div style={{ fontWeight: 'bold' }}>Estás aquí</div>
           </Popup>
-          {/* El estilo del marcador de usuario se aplica directamente al div */}
-          <div style={styles.userMarker}></div>
         </Marker>
 
         <MapClickHandler setClickCoords={handleMapClickAndShowModal} />
@@ -700,15 +756,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
-  userMarker: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#E15252',
-    borderWidth: 2,
-    borderColor: 'white',
-    boxShadow: '0 0 5px rgba(0, 0, 0, 0.2)',
-  },
+  // ELIMINADO: userMarker ya no es necesario aquí, la animación se maneja con L.divIcon
   popupTitle: {
     fontWeight: 'bold',
     fontSize: '16px',
@@ -852,11 +900,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  // Nuevo estilo para el botón "Mi Ubicación"
   locateMeButton: {
     position: 'absolute',
-    top: 20, // Posiciona en la parte superior
-    right: 20, // Posiciona a la derecha
+    top: 20,
+    right: 20,
     backgroundColor: 'white',
     padding: 10,
     borderRadius: 50,
