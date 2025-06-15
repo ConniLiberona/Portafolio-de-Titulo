@@ -1,4 +1,4 @@
-// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL)
+// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BOTONES DE FICHA)
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Alert, TouchableOpacity } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -139,7 +139,7 @@ export default function MapScreenWeb() {
         // Asegúrate de filtrar las fichas que están "en la papelera" si no quieres mostrarlas
         const fichaData = doc.data();
         if (!fichaData.deleted) { // Añade esta línea para filtrar fichas eliminadas lógicamente
-            fichas.push({ id: doc.id, ...fichaData });
+          fichas.push({ id: doc.id, ...fichaData });
         }
       });
       setAssociatedFichas(fichas);
@@ -420,23 +420,28 @@ export default function MapScreenWeb() {
                     </button>
                   ))}
                 </div>
-                {/* Sección para mostrar fichas asociadas */}
+                {/* Sección para mostrar fichas asociadas - ACTUALIZADO */}
                 <div style={styles.fichasContainer}>
                   <div style={styles.actionLabel}>Fichas Asociadas ({loadingFichas ? 'Cargando...' : associatedFichas.length}):</div>
                   {loadingFichas ? (
                     <Text style={styles.loadingFichasText}>Cargando fichas...</Text>
                   ) : associatedFichas.length > 0 ? (
-                    associatedFichas.map((ficha) => (
-                      <TouchableOpacity
-                        key={ficha.id}
-                        style={styles.fichaItemTouchable}
-                        onPress={() => handleGoToFichaDetail(ficha.id)} // Llama a la función de navegación
-                      >
-                        <Text style={styles.fichaText}>Ficha ID: {ficha.id}</Text>
-                        <Text style={styles.fichaText}>Fecha: {ficha.fecha ? ficha.fecha.toDate().toLocaleDateString() : 'N/A'}</Text>
-                        {/* Agrega más detalles de la ficha si son relevantes */}
-                      </TouchableOpacity>
-                    ))
+                    <View style={styles.fichaButtonsGrid}> {/* Contenedor para los botones */}
+                      {associatedFichas.map((ficha) => (
+                        <TouchableOpacity
+                          key={ficha.id}
+                          style={styles.fichaButton} // Nuevo estilo para el botón
+                          onPress={() => handleGoToFichaDetail(ficha.id)}
+                        >
+                          <Text style={styles.fichaButtonText}>📄 Ficha {ficha.id.substring(0, 4)}...</Text> {/* Emoji y ID corto */}
+                          {ficha.fecha && (
+                            <Text style={styles.fichaButtonDate}>
+                              {ficha.fecha.toDate().toLocaleDateString()}
+                            </Text>
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
                   ) : (
                     <Text style={styles.noFichasText}>No hay fichas asociadas a esta trampa.</Text>
                   )}
@@ -568,32 +573,71 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
     paddingTop: '8px',
   },
-  fichaItemTouchable: {
-    backgroundColor: '#eef',
-    borderRadius: '5px',
-    padding: '8px',
-    marginBottom: '5px',
-    cursor: 'pointer',
-    border: '1px solid #ddd',
-    transition: 'background-color 0.2s ease',
-    '&:hover': {
-      backgroundColor: '#e0e0f0',
-    },
+  // ESTILOS NUEVOS/ACTUALIZADOS PARA BOTONES DE FICHA
+  fichaButtonsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center', // Centra los botones si no llenan la línea
+    gap: 8, // Espacio entre los botones
+    marginTop: 5,
   },
-  fichaText: {
-    fontSize: '12px',
-    color: '#333',
+  fichaButton: {
+    backgroundColor: '#e0f7fa', // Un azul claro
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#b2ebf2', // Borde un poco más oscuro
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: '45%', // Permite que haya dos botones por fila en pantallas pequeñas
+    maxWidth: '48%', // Ajuste para el espaciado
+    flexGrow: 1, // Permite que los botones crezcan para llenar el espacio
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    cursor: 'pointer', // Indica que es clickable
+    transition: 'background-color 0.2s ease, transform 0.1s ease',
+    // Esto es para React Native Web, para simular :hover
+    // Si usas CSS modules o styled-components esto sería más limpio
+    // En inline styles, necesitas usar bibliotecas como `react-hover` o
+    // simplemente definir el estilo de hover con JavaScript si es necesario,
+    // o incluir un archivo CSS aparte para estos pseudo-selectores.
+    // Para propósitos de este ejemplo, lo dejo como comentario para que sepas.
+    // ':hover': {
+    //     backgroundColor: '#b2ebf2',
+    //     transform: 'scale(1.02)',
+    // }
   },
-  loadingFichasText: {
-    fontSize: '12px',
-    color: '#777',
+  fichaButtonText: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: '#00796b', // Un verde azulado oscuro
     textAlign: 'center',
-    padding: '5px',
   },
-  noFichasText: {
-    fontSize: '12px',
-    color: '#999',
+  fichaButtonDate: {
+    fontSize: 11,
+    color: '#00796b',
+    marginTop: 2,
     textAlign: 'center',
-    padding: '5px',
   },
+  // ELIMINA O COMENTA LOS ESTILOS ANTIGUOS DE fichaItemTouchable y fichaText
+  // fichaItemTouchable: {
+  //   backgroundColor: '#eef',
+  //   borderRadius: '5px',
+  //   padding: '8px',
+  //   marginBottom: '5px',
+  //   cursor: 'pointer',
+  //   border: '1px solid #ddd',
+  //   transition: 'background-color 0.2s ease',
+  //   '&:hover': {
+  //     backgroundColor: '#e0e0f0',
+  //   },
+  // },
+  // fichaText: {
+  //   fontSize: '12px',
+  //   color: '#333',
+  // },
 });
