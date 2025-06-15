@@ -28,11 +28,13 @@ const getStatusButtonColor = (estado) => {
 export default function PinCreationModal({ visible, onClose, onSave, coords }) {
   const [description, setDescription] = useState('');
   const [selectedEstado, setSelectedEstado] = useState(validPinStates?.[0] || '');
+  const [nTrampa, setNTrampa] = useState(''); // Estado para el número de trampa
 
   useEffect(() => {
     if (visible) {
       setDescription('');
       setSelectedEstado(validPinStates?.[0] || '');
+      setNTrampa(''); // Limpiar el campo del número de trampa al abrir
     }
   }, [visible, validPinStates]);
 
@@ -45,11 +47,30 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
       alert('Debes seleccionar un estado para la trampa.');
       return;
     }
+    // VALIDACIÓN PARA n_trampa DE 9 DÍGITOS
+    const cleanedNTrampa = nTrampa.trim();
+    if (cleanedNTrampa.length === 0) {
+      alert('El número de trampa no puede estar vacío.');
+      return;
+    }
+    if (!/^\d{9}$/.test(cleanedNTrampa)) { // Asegura que sean exactamente 9 dígitos numéricos
+      alert('El número de trampa debe ser de 9 dígitos numéricos.');
+      return;
+    }
+
+    // Decidir si guardar como número o string
+    // Opción A: Guardar como número (si los ceros iniciales no son relevantes para la búsqueda/comparación)
+    const numeroTrampa = parseInt(cleanedNTrampa, 10);
+
+    // Opción B: Guardar como string (si los ceros iniciales son importantes, ej. "000123456")
+    // const numeroTrampa = cleanedNTrampa; // Mantener como string
+
     onSave({
       lat: coords.lat,
       lng: coords.lng,
       description: description.trim(),
       estado: selectedEstado,
+      n_trampa: numeroTrampa, // Usar 'numeroTrampa' (int) o 'cleanedNTrampa' (string) según tu decisión
     });
     onClose();
   };
@@ -64,6 +85,24 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
           <Text style={styles.modalTitle}>Nueva Trampa</Text>
+
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Número de Trampa (9 dígitos):</Text>
+            <TextInput
+              style={styles.textInput}
+              placeholder="Ej: 123456789"
+              value={nTrampa}
+              onChangeText={(text) => {
+                  // Permitir solo dígitos y limitar a 9 caracteres
+                  const filteredText = text.replace(/[^0-9]/g, '');
+                  if (filteredText.length <= 9) {
+                      setNTrampa(filteredText);
+                  }
+              }}
+              keyboardType="numeric" // Sugiere teclado numérico
+              maxLength={9} // Limita la entrada a 9 caracteres
+            />
+          </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Descripción:</Text>
@@ -106,7 +145,6 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
               style={[styles.button, styles.buttonSave]}
               onPress={handleSave}
             >
-              {/* Ajustamos el estilo del texto directamente aquí o en StyleSheet */}
               <Text style={styles.buttonTextSmall}>Guardar Trampa</Text>
             </TouchableOpacity>
           </View>
@@ -121,21 +159,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Fondo semitransparente más claro
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   modalView: {
     margin: 20,
-    backgroundColor: '#f9f9f9', // Fondo más claro
-    borderRadius: 15, // Bordes más suaves
+    backgroundColor: '#f9f9f9',
+    borderRadius: 15,
     padding: 25,
-    alignItems: 'stretch', // Alinear elementos al ancho
+    alignItems: 'stretch',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1, // Sombra más sutil
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 3, // Elevación más baja para una sombra más suave
-    width: width * 0.75, // Aumentamos el ancho
-    maxWidth: 550, // Nuevo ancho máximo
+    elevation: 3,
+    width: width * 0.75,
+    maxWidth: 550,
   },
   modalTitle: {
     fontSize: 20,
@@ -174,14 +212,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     borderRadius: 25,
     marginVertical: 5,
-    minWidth: '45%', // Ocupar casi la mitad del ancho
+    minWidth: '45%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 0, // Sin borde por defecto
+    borderWidth: 0,
   },
   selectedStatusOption: {
     borderWidth: 2,
-    borderColor: '#007bff', // Resaltar el seleccionado
+    borderColor: '#007bff',
   },
   statusOptionText: {
     color: 'white',
@@ -197,7 +235,7 @@ const styles = StyleSheet.create({
   button: {
     paddingVertical: 12,
     borderRadius: 10,
-    flex: 1, // Para que los botones ocupen el mismo espacio
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 5,
@@ -209,20 +247,20 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   buttonCancel: {
-    backgroundColor: 'rgb(154, 91, 91)', // Rojo más llamativo
+    backgroundColor: '#f44336',
   },
   buttonSave: {
-    backgroundColor: 'rgb(106, 117, 71)', // Verde más llamativo
+    backgroundColor: '#4CAF50',
   },
   buttonText: {
     color: 'white',
-    fontSize: 16, // Mantengo este para "Cancelar"
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  buttonTextSmall: { // Nuevo estilo para el botón "Guardar Trampa"
+  buttonTextSmall: {
     color: 'white',
-    fontSize: 14, // Reducir un poco la fuente
+    fontSize: 14,
     fontWeight: 'bold',
-    textAlign: 'center', // Asegurar que el texto esté centrado
+    textAlign: 'center',
   },
 });

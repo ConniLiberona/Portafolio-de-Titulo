@@ -1,16 +1,15 @@
-// src/screens/MapScreen.web.js
+// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL)
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Alert, TouchableOpacity } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
+import { useNavigation } from '@react-navigation/native'; // ¡Importa useNavigation!
 
-// Importa el nuevo componente Modal
-// ¡¡¡CAMBIO AQUÍ: La ruta DEBE ser relativa a la MISMA carpeta 'screens'!!!
-import PinCreationModal from './PinCreationModal'; // <--- CORRECCIÓN CLAVE: './' en lugar de '../'
+import PinCreationModal from './PinCreationModal';
 
 // Importa Firebase y Firestore
-import { getFirestore, collection, addDoc, getDocs, query, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, getDocs, query, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
 
 // Inicializa Firestore
@@ -80,13 +79,12 @@ const determinarEstadoTrampa = (fecha_instalacion, plaga_detectada = false, reti
 
 
 // Componente auxiliar para manejar los clics en el mapa
-// Ahora solo se encarga de capturar las coordenadas y mostrarlas
 function MapClickHandler({ setClickCoords }) {
   const map = useMap();
 
   useEffect(() => {
     const handleMapClick = (e) => {
-      setClickCoords(e.latlng); // Guarda las coordenadas del clic para pasarlas al modal
+      setClickCoords(e.latlng);
     };
 
     map.on('click', handleMapClick);
@@ -110,6 +108,12 @@ export default function MapScreenWeb() {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentClickCoords, setCurrentClickCoords] = useState(null);
 
+  // Estado para las fichas asociadas al pin seleccionado (para el popup)
+  const [associatedFichas, setAssociatedFichas] = useState([]);
+  const [loadingFichas, setLoadingFichas] = useState(false);
+
+  const navigation = useNavigation(); // ¡Obtenemos la instancia de navegación!
+
   // Función para abrir el modal al hacer clic en el mapa
   const handleMapClickAndShowModal = (coords) => {
     setCurrentClickCoords(coords);
@@ -122,32 +126,73 @@ export default function MapScreenWeb() {
     setCurrentClickCoords(null);
   };
 
+  // Función para cargar fichas relacionadas con un n_trampa
+  const fetchFichasForTrampa = async (n_trampa) => {
+    setLoadingFichas(true);
+    try {
+      console.log(`Buscando fichas para n_trampa: ${n_trampa}`);
+      // Es crucial que el tipo de dato de n_trampa en Firestore sea el mismo que el que se usa aquí para la consulta.
+      const q = query(collection(db, 'fichas'), where('n_trampa', '==', n_trampa));
+      const querySnapshot = await getDocs(q);
+      const fichas = [];
+      querySnapshot.forEach((doc) => {
+        // Asegúrate de filtrar las fichas que están "en la papelera" si no quieres mostrarlas
+        const fichaData = doc.data();
+        if (!fichaData.deleted) { // Añade esta línea para filtrar fichas eliminadas lógicamente
+            fichas.push({ id: doc.id, ...fichaData });
+        }
+      });
+      setAssociatedFichas(fichas);
+      console.log(`Fichas encontradas para ${n_trampa}:`, fichas);
+    } catch (error) {
+      console.error("Error al cargar fichas para la trampa: ", error);
+      Alert.alert('Error', 'No se pudieron cargar las fichas asociadas.');
+      setAssociatedFichas([]);
+    } finally {
+      setLoadingFichas(false);
+    }
+  };
+
+  // Función para ir a la pantalla de detalle de ficha
+  const handleGoToFichaDetail = (fichaId) => {
+    console.log("Navegando a detalles de ficha:", fichaId);
+    // Usamos navigation.navigate para ir a la pantalla DetalleFicha
+    // y pasamos el fichaId como parámetro de ruta.
+    navigation.navigate('DetalleFicha', { fichaId: fichaId });
+  };
+
+
   // Función para guardar el pin, llamada desde el modal
   const handleSavePin = async (pinData) => {
     try {
+      const nTrampaToSave = pinData.n_trampa;
+      console.log("Guardando nuevo pin con n_trampa:", nTrampaToSave);
+
       const docRef = await addDoc(collection(db, 'pins'), {
         lat: pinData.lat,
         lng: pinData.lng,
         description: pinData.description,
+        n_trampa: nTrampaToSave, // Guardar el número de trampa tal cual viene del modal
         timestamp: new Date(),
         fecha_instalacion: new Date(),
         plaga_detectada: (pinData.estado === 'Requiere revisión'),
         retirada: (pinData.estado === 'Inactiva/Retirada'),
-        estado: pinData.estado, // Usa el estado seleccionado desde el modal
+        estado: pinData.estado,
       });
-      Alert.alert('¡Éxito!', 'Pin guardado en Firestore correctamente.');
-      // Añadir el nuevo pin al estado local para que se vea en el mapa
+      Alert.alert('¡Éxito!', 'Trampa guardada en Firestore correctamente.');
       setMarkers(prevMarkers => [...prevMarkers, {
         id: docRef.id,
         ...pinData,
+        n_trampa: nTrampaToSave,
         timestamp: new Date(),
         fecha_instalacion: new Date(),
         plaga_detectada: (pinData.estado === 'Requiere revisión'),
         retirada: (pinData.estado === 'Inactiva/Retirada'),
       }]);
+      console.log("Pin añadido al estado local:", { id: docRef.id, ...pinData, n_trampa: nTrampaToSave });
     } catch (error) {
-      console.error("Error al guardar el pin en Firestore: ", error);
-      Alert.alert('Error', 'No se pudo guardar el pin en Firestore. Revisa tu conexión o permisos.');
+      console.error("Error al guardar la trampa en Firestore: ", error);
+      Alert.alert('Error', 'No se pudo guardar la trampa en Firestore. Revisa tu conexión o permisos.');
     }
   };
 
@@ -177,7 +222,7 @@ export default function MapScreenWeb() {
             return {
               ...marker,
               ...updates,
-              estado: newEstado, // Usa el newEstado directamente
+              estado: newEstado,
               plaga_detectada: updates.plaga_detectada,
               retirada: updates.retirada
             };
@@ -185,10 +230,10 @@ export default function MapScreenWeb() {
           return marker;
         })
       );
-      Alert.alert('¡Éxito!', `Estado del pin actualizado a: ${newEstado}`);
+      Alert.alert('¡Éxito!', `Estado de la trampa actualizado a: ${newEstado}`);
     } catch (error) {
-      console.error("Error al actualizar el estado del pin: ", error);
-      Alert.alert('Error', 'No se pudo actualizar el estado del pin.');
+      console.error("Error al actualizar el estado de la trampa: ", error);
+      Alert.alert('Error', 'No se pudo actualizar el estado de la trampa.');
     }
   };
 
@@ -196,7 +241,7 @@ export default function MapScreenWeb() {
   const handleDeletePin = async (pinId) => {
     Alert.alert(
       "Confirmar Eliminación",
-      "¿Estás seguro de que quieres eliminar este pin? Esta acción no se puede deshacer.",
+      "¿Estás seguro de que quieres eliminar esta trampa? Esta acción no se puede deshacer.",
       [
         {
           text: "Cancelar",
@@ -208,10 +253,10 @@ export default function MapScreenWeb() {
             try {
               await deleteDoc(doc(db, "pins", pinId));
               setMarkers(prevMarkers => prevMarkers.filter(marker => marker.id !== pinId));
-              Alert.alert("¡Éxito!", "Pin eliminado correctamente.");
+              Alert.alert("¡Éxito!", "Trampa eliminada correctamente.");
             } catch (error) {
-              console.error("Error al eliminar el pin: ", error);
-              Alert.alert("Error", "No se pudo eliminar el pin.");
+              console.error("Error al eliminar la trampa: ", error);
+              Alert.alert("Error", "No se pudo eliminar la trampa.");
             }
           }
         }
@@ -249,6 +294,12 @@ export default function MapScreenWeb() {
         const fetchedMarkers = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
+          console.log("Datos del pin de Firestore:", data); // Log para depuración
+
+          const nTrampaValue = (data.n_trampa !== undefined && data.n_trampa !== null)
+                                ? data.n_trampa
+                                : 'N/A';
+
           if (data.lat && data.lng && data.description) {
             const fechaInstalacion = data.fecha_instalacion ? data.fecha_instalacion.toDate() : new Date(data.timestamp ? data.timestamp.toDate() : Date.now());
 
@@ -263,18 +314,22 @@ export default function MapScreenWeb() {
               lat: data.lat,
               lng: data.lng,
               description: data.description,
+              n_trampa: nTrampaValue,
               timestamp: data.timestamp ? data.timestamp.toDate() : null,
               fecha_instalacion: fechaInstalacion,
               plaga_detectada: data.plaga_detectada || false,
               retirada: data.retirada || false,
               estado: estadoFinal,
             });
+          } else {
+              console.warn("Pin con datos incompletos (faltan lat, lng o description), omitiendo:", data);
           }
         });
         setMarkers(fetchedMarkers);
+        console.log("Pines cargados:", fetchedMarkers);
       } catch (error) {
-        console.error("Error al cargar los pines de Firestore: ", error);
-        Alert.alert('Error de Carga', 'No se pudieron cargar los pines existentes.');
+        console.error("Error al cargar las trampas de Firestore: ", error);
+        Alert.alert('Error de Carga', 'No se pudieron cargar las trampas existentes.');
       } finally {
         setLoadingMarkers(false);
       }
@@ -295,7 +350,7 @@ export default function MapScreenWeb() {
     return (
       <View style={styles.loadingContainer}>
         <Text style={styles.loadingText}>
-          {loadingMarkers ? 'Cargando pines y mapa...' : 'Cargando mapa...'}
+          {loadingMarkers ? 'Cargando trampas y mapa...' : 'Cargando mapa...'}
         </Text>
       </View>
     );
@@ -316,7 +371,6 @@ export default function MapScreenWeb() {
           <div style={styles.userMarker}></div>
         </Marker>
 
-        {/* MapClickHandler ahora solo pasa las coordenadas del clic */}
         <MapClickHandler setClickCoords={handleMapClickAndShowModal} />
 
         {markers.map((marker) => (
@@ -324,10 +378,17 @@ export default function MapScreenWeb() {
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
             icon={pinIcons[marker.estado] || pinIcons['default']}
+            eventHandlers={{
+              popupopen: () => fetchFichasForTrampa(marker.n_trampa),
+              popupclose: () => setAssociatedFichas([])
+            }}
           >
             <Popup>
               <div style={{ marginBottom: '5px' }}>
-                <strong style={styles.popupTitle}>{marker.description}</strong>
+                <strong style={styles.popupTitle}>Trampa N° {marker.n_trampa !== 'N/A' ? marker.n_trampa : 'N/A'}</strong>
+              </div>
+              <div style={styles.popupText}>
+                Descripción: {marker.description}
               </div>
               <div style={styles.popupText}>
                 Estado: <span style={{ fontWeight: 'bold', color: getEstadoColor(marker.estado) }}>{marker.estado}</span>
@@ -359,6 +420,28 @@ export default function MapScreenWeb() {
                     </button>
                   ))}
                 </div>
+                {/* Sección para mostrar fichas asociadas */}
+                <div style={styles.fichasContainer}>
+                  <div style={styles.actionLabel}>Fichas Asociadas ({loadingFichas ? 'Cargando...' : associatedFichas.length}):</div>
+                  {loadingFichas ? (
+                    <Text style={styles.loadingFichasText}>Cargando fichas...</Text>
+                  ) : associatedFichas.length > 0 ? (
+                    associatedFichas.map((ficha) => (
+                      <TouchableOpacity
+                        key={ficha.id}
+                        style={styles.fichaItemTouchable}
+                        onPress={() => handleGoToFichaDetail(ficha.id)} // Llama a la función de navegación
+                      >
+                        <Text style={styles.fichaText}>Ficha ID: {ficha.id}</Text>
+                        <Text style={styles.fichaText}>Fecha: {ficha.fecha ? ficha.fecha.toDate().toLocaleDateString() : 'N/A'}</Text>
+                        {/* Agrega más detalles de la ficha si son relevantes */}
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <Text style={styles.noFichasText}>No hay fichas asociadas a esta trampa.</Text>
+                  )}
+                </div>
+
                 <button
                   style={{
                     ...styles.deleteButton,
@@ -367,7 +450,7 @@ export default function MapScreenWeb() {
                   }}
                   onClick={() => handleDeletePin(marker.id)}
                 >
-                  Eliminar Pin
+                  Eliminar Trampa
                 </button>
               </div>
             </Popup>
@@ -375,8 +458,7 @@ export default function MapScreenWeb() {
         ))}
       </MapContainer>
 
-      {/* El modal de creación de pin */}
-      {currentClickCoords && ( // Solo renderiza el modal si hay coordenadas de clic
+      {currentClickCoords && (
         <PinCreationModal
           visible={isModalVisible}
           onClose={handleCloseModal}
@@ -478,5 +560,40 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: '100%',
+  },
+  fichasContainer: {
+    marginTop: '10px',
+    borderTopWidth: '1px',
+    borderTopStyle: 'solid',
+    borderTopColor: '#eee',
+    paddingTop: '8px',
+  },
+  fichaItemTouchable: {
+    backgroundColor: '#eef',
+    borderRadius: '5px',
+    padding: '8px',
+    marginBottom: '5px',
+    cursor: 'pointer',
+    border: '1px solid #ddd',
+    transition: 'background-color 0.2s ease',
+    '&:hover': {
+      backgroundColor: '#e0e0f0',
+    },
+  },
+  fichaText: {
+    fontSize: '12px',
+    color: '#333',
+  },
+  loadingFichasText: {
+    fontSize: '12px',
+    color: '#777',
+    textAlign: 'center',
+    padding: '5px',
+  },
+  noFichasText: {
+    fontSize: '12px',
+    color: '#999',
+    textAlign: 'center',
+    padding: '5px',
   },
 });
