@@ -209,10 +209,10 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   buttonCancel: {
-    backgroundColor: '#f44336', // Rojo más llamativo
+    backgroundColor: 'rgb(154, 91, 91)', // Rojo más llamativo
   },
   buttonSave: {
-    backgroundColor: '#4CAF50', // Verde más llamativo
+    backgroundColor: 'rgb(106, 117, 71)', // Verde más llamativo
   },
   buttonText: {
     color: 'white',

@@ -88,7 +88,7 @@ export default function Navigation() {
             headerShown: true,
             headerTintColor: "white",
             headerTitleAlign: "center",
-            headerStyle: { backgroundColor: "#2E7D32" },
+            headerStyle: { backgroundColor: "rgba(138, 154, 91, 0.81)" },
             presentation: 'modal',
           }}
         >
@@ -139,7 +139,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0f0f0',
+    backgroundColor: 'rgba(138, 154, 91, 0.4)',
   },
   safeArea: {
     flex: 1, // ¡Crucial! Asegura que la aplicación ocupe toda la altura disponible
