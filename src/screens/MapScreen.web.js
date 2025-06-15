@@ -1,10 +1,10 @@
-// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BOTONES DE FICHA Y n_trampa)
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Alert, TouchableOpacity } from 'react-native';
+// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BUSCADOR DE PIN Y BUSCADOR ABAJO)
+import React, { useState, useEffect, useRef } from 'react'; // ¡Importa useRef!
+import { StyleSheet, View, Text, Alert, TouchableOpacity, TextInput } from 'react-native'; // ¡Importa TextInput!
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
-import { useNavigation } from '@react-navigation/native'; // ¡Importa useNavigation!
+import { useNavigation } from '@react-navigation/native';
 
 import PinCreationModal from './PinCreationModal';
 
@@ -77,7 +77,6 @@ const determinarEstadoTrampa = (fecha_instalacion, plaga_detectada = false, reti
   }
 };
 
-
 // Componente auxiliar para manejar los clics en el mapa
 function MapClickHandler({ setClickCoords }) {
   const map = useMap();
@@ -97,6 +96,34 @@ function MapClickHandler({ setClickCoords }) {
   return null;
 }
 
+// Componente auxiliar para manejar las interacciones del mapa desde el padre (ej. búsqueda)
+function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs }) {
+  const map = useMap();
+
+  // Efecto para volar a la ubicación objetivo
+  useEffect(() => {
+    if (targetLocation) {
+      map.flyTo(targetLocation, map.getZoom() || 15, {
+        duration: 1.5, // Duración de la animación en segundos
+      });
+      // Importante: Reiniciar targetLocation después de usarlo para evitar animaciones repetidas
+      // Esto se haría en el padre a través de una función pasada como prop si este componente necesitara manejarlo.
+      // Por ahora, el padre se encargará de resetearlo.
+    }
+  }, [map, targetLocation]);
+
+  // Efecto para abrir el popup de un marcador específico
+  useEffect(() => {
+    if (markerToOpenId && markerRefs.current[markerToOpenId]) {
+      markerRefs.current[markerToOpenId].openPopup();
+      // Importante: Reiniciar markerToOpenId después de usarlo
+      // Esto se haría en el padre a través de una función pasada como prop si este componente necesitara manejarlo.
+    }
+  }, [map, markerToOpenId, markerRefs]);
+
+  return null; // Este componente no renderiza nada visualmente
+}
+
 // Componente principal de la pantalla del mapa
 export default function MapScreenWeb() {
   const [location, setLocation] = useState(null);
@@ -112,7 +139,13 @@ export default function MapScreenWeb() {
   const [associatedFichas, setAssociatedFichas] = useState([]);
   const [loadingFichas, setLoadingFichas] = useState(false);
 
-  const navigation = useNavigation(); // ¡Obtenemos la instancia de navegación!
+  // Estados para la funcionalidad de búsqueda
+  const [searchText, setSearchText] = useState('');
+  const [targetLocation, setTargetLocation] = useState(null); // Para centrar el mapa
+  const [markerToOpenId, setMarkerToOpenId] = useState(null); // Para abrir el popup del marcador
+  const markerRefs = useRef({}); // Para almacenar referencias a los objetos Leaflet Marker
+
+  const navigation = useNavigation();
 
   // Función para abrir el modal al hacer clic en el mapa
   const handleMapClickAndShowModal = (coords) => {
@@ -131,14 +164,12 @@ export default function MapScreenWeb() {
     setLoadingFichas(true);
     try {
       console.log(`Buscando fichas para n_trampa: ${n_trampa}`);
-      // Es crucial que el tipo de dato de n_trampa en Firestore sea el mismo que el que se usa aquí para la consulta.
       const q = query(collection(db, 'fichas'), where('n_trampa', '==', n_trampa));
       const querySnapshot = await getDocs(q);
       const fichas = [];
       querySnapshot.forEach((doc) => {
-        // Asegúrate de filtrar las fichas que están "en la papelera" si no quieres mostrarlas
         const fichaData = doc.data();
-        if (!fichaData.deleted) { // Añade esta línea para filtrar fichas eliminadas lógicamente
+        if (!fichaData.deleted) {
           fichas.push({ id: doc.id, ...fichaData });
         }
       });
@@ -156,11 +187,8 @@ export default function MapScreenWeb() {
   // Función para ir a la pantalla de detalle de ficha
   const handleGoToFichaDetail = (fichaId) => {
     console.log("Navegando a detalles de ficha:", fichaId);
-    // Usamos navigation.navigate para ir a la pantalla DetalleFicha
-    // y pasamos el fichaId como parámetro de ruta.
     navigation.navigate('DetalleFicha', { fichaId: fichaId });
   };
-
 
   // Función para guardar el pin, llamada desde el modal
   const handleSavePin = async (pinData) => {
@@ -172,7 +200,7 @@ export default function MapScreenWeb() {
         lat: pinData.lat,
         lng: pinData.lng,
         description: pinData.description,
-        n_trampa: nTrampaToSave, // Guardar el número de trampa tal cual viene del modal
+        n_trampa: nTrampaToSave,
         timestamp: new Date(),
         fecha_instalacion: new Date(),
         plaga_detectada: (pinData.estado === 'Requiere revisión'),
@@ -264,6 +292,35 @@ export default function MapScreenWeb() {
     );
   };
 
+  // Función para manejar la búsqueda de pines
+  const handleSearchPin = async () => { // ¡CAMBIO: Ahora es async!
+    if (!searchText) {
+      Alert.alert('Búsqueda', 'Por favor, introduce un número de trampa para buscar.');
+      return;
+    }
+
+    const foundMarker = markers.find(
+      (m) => m.n_trampa && String(m.n_trampa).toLowerCase() === String(searchText).toLowerCase()
+    );
+
+    if (foundMarker) {
+      setTargetLocation([foundMarker.lat, foundMarker.lng]); // Establece la ubicación para que el mapa vuele
+      setMarkerToOpenId(foundMarker.id); // Establece el ID del marcador cuyo popup debe abrirse
+      setSearchText(''); // Limpia el campo de búsqueda
+
+      // *** INICIO DEL CAMBIO PRINCIPAL ***
+      // Llama a fetchFichasForTrampa directamente después de encontrar el marcador
+      // Esto asegura que las fichas se carguen cuando el popup se abre programáticamente.
+      await fetchFichasForTrampa(foundMarker.n_trampa); 
+      // *** FIN DEL CAMBIO PRINCIPAL ***
+
+    } else {
+      Alert.alert('No Encontrado', `No se encontró ninguna trampa con el N°: "${searchText}"`);
+      setTargetLocation(null); // Resetea la ubicación objetivo
+      setMarkerToOpenId(null); // Resetea el marcador a abrir
+    }
+  };
+
   // useEffect para obtener la ubicación del usuario
   useEffect(() => {
     if (navigator.geolocation) {
@@ -294,11 +351,11 @@ export default function MapScreenWeb() {
         const fetchedMarkers = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
-          console.log("Datos del pin de Firestore:", data); // Log para depuración
+          // console.log("Datos del pin de Firestore:", data); // Log para depuración
 
           const nTrampaValue = (data.n_trampa !== undefined && data.n_trampa !== null)
-                                ? data.n_trampa
-                                : 'N/A';
+                               ? data.n_trampa
+                               : 'N/A';
 
           if (data.lat && data.lng && data.description) {
             const fechaInstalacion = data.fecha_instalacion ? data.fecha_instalacion.toDate() : new Date(data.timestamp ? data.timestamp.toDate() : Date.now());
@@ -326,7 +383,7 @@ export default function MapScreenWeb() {
           }
         });
         setMarkers(fetchedMarkers);
-        console.log("Pines cargados:", fetchedMarkers);
+        // console.log("Pines cargados:", fetchedMarkers);
       } catch (error) {
         console.error("Error al cargar las trampas de Firestore: ", error);
         Alert.alert('Error de Carga', 'No se pudieron cargar las trampas existentes.');
@@ -337,6 +394,19 @@ export default function MapScreenWeb() {
 
     fetchMarkers();
   }, []);
+
+  // Reset targetLocation y markerToOpenId después de un tiempo para evitar re-triggers
+  // Puedes ajustar el tiempo según la duración de tu animación.
+  useEffect(() => {
+    if (targetLocation || markerToOpenId) {
+      const timer = setTimeout(() => {
+        setTargetLocation(null);
+        setMarkerToOpenId(null);
+      }, 2000); // Un poco más largo que la duración de la animación flyTo
+      return () => clearTimeout(timer);
+    }
+  }, [targetLocation, markerToOpenId]);
+
 
   if (errorMsg) {
     return (
@@ -358,6 +428,7 @@ export default function MapScreenWeb() {
 
   return (
     <View style={styles.container}>
+      {/* El MapContainer va primero en el orden de renderizado si quieres que el searchContainer lo overlay */}
       <MapContainer center={[location.latitude, location.longitude]} zoom={13} style={styles.map}>
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -368,16 +439,25 @@ export default function MapScreenWeb() {
           <Popup>
             <div style={{ fontWeight: 'bold' }}>Estás aquí</div>
           </Popup>
+          {/* Este div style crea un marcador de círculo rojo para la ubicación del usuario */}
           <div style={styles.userMarker}></div>
         </Marker>
 
         <MapClickHandler setClickCoords={handleMapClickAndShowModal} />
+
+        {/* Componente que interactúa con el mapa para volar y abrir popups */}
+        <MapInteractionHandler
+          targetLocation={targetLocation}
+          markerToOpenId={markerToOpenId}
+          markerRefs={markerRefs}
+        />
 
         {markers.map((marker) => (
           <Marker
             key={marker.id}
             position={{ lat: marker.lat, lng: marker.lng }}
             icon={pinIcons[marker.estado] || pinIcons['default']}
+            ref={(ref) => { markerRefs.current[marker.id] = ref; }} // Guarda la referencia al objeto Leaflet Marker
             eventHandlers={{
               popupopen: () => fetchFichasForTrampa(marker.n_trampa),
               popupclose: () => setAssociatedFichas([])
@@ -420,21 +500,20 @@ export default function MapScreenWeb() {
                     </button>
                   ))}
                 </div>
-                {/* Sección para mostrar fichas asociadas - ACTUALIZADO */}
+                {/* Sección para mostrar fichas asociadas */}
                 <div style={styles.fichasContainer}>
                   <div style={styles.actionLabel}>Fichas Asociadas ({loadingFichas ? 'Cargando...' : associatedFichas.length}):</div>
                   {loadingFichas ? (
                     <Text style={styles.loadingFichasText}>Cargando fichas...</Text>
                   ) : associatedFichas.length > 0 ? (
-                    <View style={styles.fichaButtonsGrid}> {/* Contenedor para los botones */}
+                    <View style={styles.fichaButtonsGrid}>
                       {associatedFichas.map((ficha) => (
                         <TouchableOpacity
                           key={ficha.id}
-                          style={styles.fichaButton} // Nuevo estilo para el botón
+                          style={styles.fichaButton}
                           onPress={() => handleGoToFichaDetail(ficha.id)}
                         >
-                          {/* CAMBIO CLAVE AQUÍ: Usar ficha.n_trampa */}
-                          <Text style={styles.fichaButtonText}>📄 Trampa {ficha.n_trampa}</Text>
+                          <Text style={styles.fichaButtonText}>📄 Trampa {ficha.n_trampa}</Text> {/* Muestra n_trampa */}
                           {ficha.fecha && (
                             <Text style={styles.fichaButtonDate}>
                               {ficha.fecha.toDate().toLocaleDateString()}
@@ -464,6 +543,24 @@ export default function MapScreenWeb() {
         ))}
       </MapContainer>
 
+      {/* Search Input y Botón - Ahora posicionado en la parte inferior */}
+      <View style={styles.searchContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Buscar por N° Trampa"
+          value={searchText}
+          onChangeText={setSearchText}
+          keyboardType="numeric" // Sugiere teclado numérico en móviles
+          onSubmitEditing={handleSearchPin} // Permite buscar al presionar Enter/Go
+        />
+        <TouchableOpacity
+          style={styles.searchButton}
+          onPress={handleSearchPin}
+        >
+          <Text style={styles.searchButtonText}>Buscar</Text>
+        </TouchableOpacity>
+      </View>
+
       {currentClickCoords && (
         <PinCreationModal
           visible={isModalVisible}
@@ -482,6 +579,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: '#f0f0f0',
+    position: 'relative', // Importante para posicionar el searchContainer absolutamente
   },
   map: {
     width: '100%',
@@ -574,45 +672,37 @@ const styles = StyleSheet.create({
     borderTopColor: '#eee',
     paddingTop: '8px',
   },
-  // ESTILOS NUEVOS/ACTUALIZADOS PARA BOTONES DE FICHA
   fichaButtonsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'center', // Centra los botones si no llenan la línea
-    gap: 8, // Espacio entre los botones
+    justifyContent: 'center',
+    gap: 8,
     marginTop: 5,
   },
   fichaButton: {
-    backgroundColor: '#e0f7fa', // Un azul claro
+    backgroundColor: '#e0f7fa',
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#b2ebf2', // Borde un poco más oscuro
+    borderColor: '#b2ebf2',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: '45%', // Permite que haya dos botones por fila en pantallas pequeñas
-    maxWidth: '48%', // Ajuste para el espaciado
-    flexGrow: 1, // Permite que los botones crezcan para llenar el espacio
+    minWidth: '45%',
+    maxWidth: '48%',
+    flexGrow: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
-    cursor: 'pointer', // Indica que es clickable
+    cursor: 'pointer',
     transition: 'background-color 0.2s ease, transform 0.1s ease',
-    // Si estás usando `react-native-web` y quieres `:hover` en web,
-    // puedes necesitar un CSS externo o una biblioteca que lo soporte directamente.
-    // Para demostración, se comenta aquí, pero la `TouchableOpacity` ya maneja el feedback táctil.
-    // ':hover': {
-    //     backgroundColor: '#b2ebf2',
-    //     transform: 'scale(1.02)',
-    // }
   },
   fichaButtonText: {
     fontSize: 13,
     fontWeight: 'bold',
-    color: '#00796b', // Un verde azulado oscuro
+    color: '#00796b',
     textAlign: 'center',
   },
   fichaButtonDate: {
@@ -621,21 +711,47 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  // ESTILOS ANTIGUOS DE FICHA COMENTADOS O ELIMINADOS SEGÚN LA DISCUSIÓN PREVIA
-  // fichaItemTouchable: {
-  //   backgroundColor: '#eef',
-  //   borderRadius: '5px',
-  //   padding: '8px',
-  //   marginBottom: '5px',
-  //   cursor: 'pointer',
-  //   border: '1px solid #ddd',
-  //   transition: 'background-color 0.2s ease',
-  //   '&:hover': {
-  //     backgroundColor: '#e0e0f0',
-  //   },
-  // },
-  // fichaText: {
-  //   fontSize: '12px',
-  //   color: '#333',
-  // },
+  // --- Estilos ACTUALIZADOS para la funcionalidad de búsqueda (ahora abajo) ---
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+    backgroundColor: '#fff',
+    borderTopWidth: 1, // Cambiado a borderTopWidth
+    borderTopColor: '#eee', // Cambiado a borderTopColor
+    position: 'absolute', // Posiciona el contenedor de búsqueda sobre el mapa
+    bottom: 10, // Distancia desde la parte inferior (cambiado de top)
+    left: 10,
+    right: 10,
+    zIndex: 1000, // Asegura que esté por encima del mapa
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 }, // Sombra hacia arriba
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  searchInput: {
+    flex: 1, // Hace que el input ocupe el espacio restante
+    height: 40,
+    borderColor: '#ddd',
+    borderWidth: 1,
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    marginRight: 10,
+    fontSize: 15,
+  },
+  searchButton: {
+    backgroundColor: '#007bff', // Un azul estándar para el botón
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    borderRadius: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchButtonText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: 'bold',
+  },
 });
