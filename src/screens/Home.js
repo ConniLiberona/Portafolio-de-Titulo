@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
   scrollViewContentContainer: {
     flexGrow: 1,
     alignItems: 'center',
-    paddingVertical: 10, // Más reducido para compactar aún más el contenido
+    paddingVertical: 10,
   },
   mainContentWrapper: {
     width: '100%',
@@ -165,8 +165,8 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20, // Reducido aún más para subir el logo
-    marginBottom: 0, // Eliminado o muy reducido para acercar el logo al texto
+    marginTop: 10,
+    marginBottom: 0,
   },
   logoImage: {
     width: 150,
@@ -174,21 +174,20 @@ const styles = StyleSheet.create({
     resizeMode: 'contain',
   },
   serviceText: {
-    fontSize: 13, // Ligeramente más pequeño para una línea más compacta
-    fontFamily: 'Montserrat-Regular', // Usando Regular, que es más "plana" que Bold
-    // Si tienes 'Montserrat-Light', puedes usarlo aquí: 'Montserrat-Light',
+    fontSize: 13,
+    fontFamily: 'Montserrat-Regular',
     color: '#34495E',
-    marginTop: 5, // Un poco de espacio entre el logo y este texto
-    marginBottom: 15, // Reducido para acercar el texto a la tarjeta de resumen
+    marginTop: 5,
+    marginBottom: 10,
     textAlign: 'center',
-    letterSpacing: 0.8, // Ligeramente menos espaciado para compactar
+    letterSpacing: 0.8,
     opacity: 0.8,
   },
   infoCard: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
     padding: 20,
-    marginBottom: 15, // Reducido
+    marginBottom: 15,
     width: '100%',
     shadowColor: 'rgba(0, 0, 0, 0.15)',
     shadowOffset: { width: 0, height: 6 },
@@ -215,7 +214,7 @@ const styles = StyleSheet.create({
   },
   navigationGrid: {
     width: '100%',
-    marginBottom: 15, // Reducido
+    marginBottom: 5, // <--- AJUSTADO AQUÍ: Reducido para acercar el botón de cerrar sesión
   },
   gridRow: {
     flexDirection: 'row',
@@ -225,11 +224,9 @@ const styles = StyleSheet.create({
   gridButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 12,
-    paddingVertical: 18, // Ligeramente más pequeño
+    paddingVertical: 18,
     paddingHorizontal: 15,
     flex: 1,
-    flexShrink: 1,
-    minWidth: '45%',
     marginHorizontal: 7,
     alignItems: 'center',
     justifyContent: 'center',
@@ -240,39 +237,40 @@ const styles = StyleSheet.create({
     elevation: 8,
     borderWidth: 1,
     borderColor: '#BDC3C7',
-    minHeight: 90, // Altura mínima de botón reducida
+    minHeight: 90,
   },
   buttonIcon: {
-    fontSize: 26, // Icono un poco más pequeño
+    fontSize: 26,
     marginBottom: 5,
   },
   gridButtonText: {
     color: '#2C3E50',
-    fontSize: 13, // Texto del botón un poco más pequeño
+    fontSize: 13,
     fontWeight: '600',
     textAlign: 'center',
     letterSpacing: 0.5,
   },
   logoutButton: {
-    backgroundColor: 'transparent',
-    borderWidth: 2,
-    borderColor: '#8A9A5B',
-    paddingVertical: 10, // Reducido
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 15, // Reducido
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderWidth: 1,
+    borderColor: '#BDC3C7',
+    paddingVertical: 15,
+    paddingHorizontal: 25,
+    borderRadius: 12,
+    marginTop: 10, // <--- AJUSTADO AQUÍ: Reducido para una separación más consistente
     width: '100%',
     maxWidth: 280,
+    alignSelf: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(138, 154, 91, 0.4)',
+    shadowColor: 'rgba(0, 0, 0, 0.1)',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.6,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
   },
   logoutButtonText: {
-    color: '#8A9A5B',
-    fontSize: 14, // Texto del botón de logout más pequeño
+    color: '#2C3E50',
+    fontSize: 14,
     fontWeight: '700',
     letterSpacing: 1.2,
   },

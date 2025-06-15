@@ -1,6 +1,6 @@
 // src/screens/Login.js
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Image } from 'react-native';
+import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 
 // Importaciones de Firebase
 import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
@@ -8,6 +8,9 @@ import appMoscasSAG from '../../credenciales'; // Ajusta la ruta si es necesario
 
 // Obtiene la instancia de autenticación de Firebase
 const auth = getAuth(appMoscasSAG);
+
+// Obtener las dimensiones de la pantalla para ajustar el tamaño del logo y márgenes
+const { width, height } = Dimensions.get('window');
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -38,15 +41,19 @@ export default function Login() {
 
   return (
     <View style={styles.container}>
-      {/* Puedes colocar aquí la imagen del SAG si la tienes */}
-      {/* <Image source={require('../assets/sag_logo.png')} style={styles.logo} /> */}
+      {/* Aquí colocamos la imagen del SAG */}
+      <Image
+        source={require('../../assets/SAG.png')} // Ruta de tu imagen SAG.png
+        style={styles.logo}
+        resizeMode="contain"
+      />
 
       <Text style={styles.title}>Iniciar Sesión</Text>
 
       <TextInput
         style={styles.input}
         placeholder="Correo electrónico"
-        placeholderTextColor="#999"
+        placeholderTextColor="#939393"
         keyboardType="email-address"
         autoCapitalize="none"
         value={email}
@@ -56,7 +63,7 @@ export default function Login() {
       <TextInput
         style={styles.input}
         placeholder="Contraseña"
-        placeholderTextColor="#999"
+        placeholderTextColor="#939393"
         secureTextEntry
         value={password}
         onChangeText={setPassword}
@@ -77,19 +84,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f2f2f2',
+    backgroundColor: '#f2f2f2', // Fondo plano y claro
   },
-  // logo: {
-  //   width: 150,
-  //   height: 150,
-  //   marginBottom: 30,
-  //   resizeMode: 'contain',
-  // },
+  logo: {
+    width: '100%',
+    maxWidth: 350,
+    height: (350 / 2), // Mantener la proporción (asumiendo 2:1)
+    marginBottom: height * 0.03,
+    resizeMode: 'contain',
+  },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontFamily: 'Montserrat-Bold',
     color: '#333',
-    marginBottom: 40,
+    marginBottom: height * 0.03,
+    width: '100%',
+    maxWidth: 350,
+    textAlign: 'center',
   },
   input: {
     width: '100%',
@@ -97,31 +108,39 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 15,
     paddingHorizontal: 20,
-    borderRadius: 10,
-    marginBottom: 15,
-    fontSize: 16,
+    borderRadius: 8,
+    marginBottom: 12,
+    fontSize: 18, // <-- AUMENTADO EL TAMAÑO DE LA FUENTE AQUÍ
+    fontFamily: 'Montserrat-Regular',
     color: '#333',
-    borderColor: '#ddd',
+    borderColor: '#e0e0e0',
     borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   button: {
-    backgroundColor: '#2E7D32', // <-- VERDE Principal (SAG)
+    backgroundColor: '#8A9A5B',
     paddingVertical: 15,
     paddingHorizontal: 40,
-    borderRadius: 10,
+    borderRadius: 8,
     marginTop: 20,
     width: '100%',
     maxWidth: 350,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 5,
+    shadowColor: 'rgba(138, 154, 91, 0.4)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.6,
+    shadowRadius: 8,
+    elevation: 6,
   },
   buttonText: {
     color: '#fff',
     fontSize: 18,
+    fontFamily: 'Montserrat-Bold',
     fontWeight: 'bold',
+    letterSpacing: 0.8,
   },
 });
