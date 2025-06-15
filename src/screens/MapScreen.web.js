@@ -1,4 +1,4 @@
-// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BOTONES DE FICHA)
+// src/screens/MapScreen.web.js (ACTUALIZADO - CÓDIGO FINAL CON BOTONES DE FICHA Y n_trampa)
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Alert, TouchableOpacity } from 'react-native';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
@@ -433,7 +433,8 @@ export default function MapScreenWeb() {
                           style={styles.fichaButton} // Nuevo estilo para el botón
                           onPress={() => handleGoToFichaDetail(ficha.id)}
                         >
-                          <Text style={styles.fichaButtonText}>📄 Ficha {ficha.id.substring(0, 4)}...</Text> {/* Emoji y ID corto */}
+                          {/* CAMBIO CLAVE AQUÍ: Usar ficha.n_trampa */}
+                          <Text style={styles.fichaButtonText}>📄 Trampa {ficha.n_trampa}</Text>
                           {ficha.fecha && (
                             <Text style={styles.fichaButtonDate}>
                               {ficha.fecha.toDate().toLocaleDateString()}
@@ -600,12 +601,9 @@ const styles = StyleSheet.create({
     elevation: 2,
     cursor: 'pointer', // Indica que es clickable
     transition: 'background-color 0.2s ease, transform 0.1s ease',
-    // Esto es para React Native Web, para simular :hover
-    // Si usas CSS modules o styled-components esto sería más limpio
-    // En inline styles, necesitas usar bibliotecas como `react-hover` o
-    // simplemente definir el estilo de hover con JavaScript si es necesario,
-    // o incluir un archivo CSS aparte para estos pseudo-selectores.
-    // Para propósitos de este ejemplo, lo dejo como comentario para que sepas.
+    // Si estás usando `react-native-web` y quieres `:hover` en web,
+    // puedes necesitar un CSS externo o una biblioteca que lo soporte directamente.
+    // Para demostración, se comenta aquí, pero la `TouchableOpacity` ya maneja el feedback táctil.
     // ':hover': {
     //     backgroundColor: '#b2ebf2',
     //     transform: 'scale(1.02)',
@@ -623,7 +621,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     textAlign: 'center',
   },
-  // ELIMINA O COMENTA LOS ESTILOS ANTIGUOS DE fichaItemTouchable y fichaText
+  // ESTILOS ANTIGUOS DE FICHA COMENTADOS O ELIMINADOS SEGÚN LA DISCUSIÓN PREVIA
   // fichaItemTouchable: {
   //   backgroundColor: '#eef',
   //   borderRadius: '5px',
