@@ -1,21 +1,43 @@
-import React, { useState, useEffect, useCallback } from 'react'; // Importa useCallback
+import React, { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, Alert, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation, useFocusEffect } from '@react-navigation/native'; // Importa useFocusEffect
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 // Importaciones para PDF
 import pdfMake from 'pdfmake/build/pdfmake';
 import vfsFonts from 'pdfmake/build/vfs_fonts';
 pdfMake.vfs = vfsFonts.vfs;
-import htmlToPdfmake from 'html-to-pdfmake';
+// Ya no necesitamos htmlToPdfmake
 
-// Importaciones para Expo (manejo de archivos y compartir PDF en móvil)
-// Asegúrate de haber instalado estas librerías: npx expo install expo-file-system expo-sharing
-import * as FileSystem from 'expo-file-system';
-import * as Sharing from 'expo-sharing';
+// Si estamos en web, no necesitamos FileSystem y Sharing
+// Para React Native (móvil), asegúrate de que estas líneas estén descomentadas
+// import * as FileSystem from 'expo-file-system';
+// import * as Sharing from 'expo-sharing';
 
 const db = getFirestore(appMoscasSAG);
+
+// Función auxiliar para convertir URL de imagen a Base64
+// Esta función funcionará tanto en web como en React Native
+const getImageBase64 = async (url) => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
+        });
+    } catch (error) {
+        console.error('Error al convertir imagen a Base64:', error);
+        return null; // Retorna null si hay un error
+    }
+};
+
 
 export default function DetalleFicha({ route }) {
     const { fichaId } = route.params;
@@ -26,7 +48,7 @@ export default function DetalleFicha({ route }) {
     const navigation = useNavigation();
 
     // Función para cargar los datos de la ficha desde Firestore
-    const fetchFicha = async () => { // Hacemos fetchFicha una función independiente
+    const fetchFicha = async () => {
         setLoading(true);
         setError(null);
         try {
@@ -52,14 +74,12 @@ export default function DetalleFicha({ route }) {
     // Usar useFocusEffect para volver a cargar los datos cada vez que la pantalla entre en foco
     useFocusEffect(
       useCallback(() => {
-        fetchFicha(); // Llama a la función de carga
-        // Opcional: Retorna una función de limpieza si es necesario
+        fetchFicha();
         return () => {
-          // Cualquier limpieza para cuando la pantalla se desenfoca
+          // Limpieza opcional
         };
-      }, [fichaId]) // Vuelve a ejecutar el efecto si fichaId cambia
+      }, [fichaId])
     );
-
 
     // Maneja el movimiento de una ficha a la papelera
     const handleDeleteFicha = async () => {
@@ -102,13 +122,12 @@ export default function DetalleFicha({ route }) {
 
     // Maneja la navegación a la pantalla de modificación
     const handleModifyFicha = () => {
-        // Asegúrate de pasar los datos actuales de la ficha al componente de edición
         navigation.navigate('EditarFicha', { fichaId: fichaId, currentFichaData: ficha });
     };
 
     // Función auxiliar para formatear los valores de visualización
     const formatValue = (key, value) => {
-        if (value === null || typeof value === 'undefined' || value === '') {
+        if (value === null || typeof value === 'undefined' || value === '' || value === false) {
             return 'N/A';
         }
         if (key === 'fecha' && value && typeof value.toDate === 'function') {
@@ -121,7 +140,6 @@ export default function DetalleFicha({ route }) {
         }
         if (key === 'condiciones_trampa') {
             let condiciones = [];
-            // Accede directamente a las propiedades booleanas del objeto ficha
             if (ficha?.condicion_fija) condiciones.push('Fija');
             if (ficha?.condicion_movil) condiciones.push('Móvil');
             if (ficha?.condicion_temporal) condiciones.push('Temporal');
@@ -134,66 +152,162 @@ export default function DetalleFicha({ route }) {
     };
 
     // Maneja la exportación a PDF
-    const handleExportPdf = () => {
+    const handleExportPdf = async () => { // Hacer la función asíncrona
         if (!ficha) {
             Alert.alert('Error', 'No hay datos de ficha para exportar.');
             return;
         }
 
-        // Importante: Al generar HTML para PDF, las imágenes deben estar en base64 o accesibles públicamente.
-        // pdfMake puede cargar imágenes desde URLs, pero es más robusto si están en un formato directo.
-        // Para URLs externas, pdfMake las intentará descargar, lo que podría fallar por CORS o red.
-        // Si tienes problemas con las imágenes en el PDF, considera convertir la imagen a Base64 antes de incluirla.
-        let htmlContent = `
-            <h1>Detalle de Ficha</h1>
-            <p><strong>N° Trampa:</strong> ${formatValue('n_trampa', ficha.n_trampa)}</p>
-            <h2>Datos de Ubicación</h2>
-            <p><strong>Región:</strong> ${formatValue('region', ficha.region)}</p>
-            <p><strong>Oficina:</strong> ${formatValue('oficina', ficha.oficina)}</p>
-            <p><strong>Cuadrante:</strong> ${formatValue('cuadrante', ficha.cuadrante)}</p>
-            <p><strong>Subcuadrante:</strong> ${formatValue('subcuadrante', ficha.subcuadrante)}</p>
-            <p><strong>Ruta:</strong> ${formatValue('ruta', ficha.ruta)}</p>
-            <p><strong>Condición:</strong> ${formatValue('condiciones_trampa', null)}</p>
-            <p><strong>Huso:</strong> ${formatValue('huso', ficha.huso)}</p>
-            <h2>Datos de Actividad</h2>
-            <p><strong>Fecha:</strong> ${formatValue('fecha', ficha.fecha)}</p>
-            <p><strong>Actividad:</strong> ${formatValue('actividad', ficha.actividad)}</p>
-            <p><strong>Prospector:</strong> ${formatValue('prospector', ficha.prospector)}</p>
-            <p><strong>Localización:</strong> ${formatValue('localizacion', ficha.localizacion)}</p>
-            <p><strong>Observaciones:</strong> ${formatValue('observaciones', ficha.observaciones)}</p>
-            ${ficha.imageUrl ? `<p><strong>Imagen:</strong> <img src="${ficha.imageUrl}" width="200" /></p>` : ''}
-            <p><em>Generado el: ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</em></p>
-        `;
-
-        const content = htmlToPdfmake(htmlContent, {
-            imagesByReference: true
-        });
+        let imageData = null;
+        if (ficha.imageUrl) {
+            Alert.alert('Generando PDF', 'Cargando imagen para el PDF, por favor espere...');
+            imageData = await getImageBase64(ficha.imageUrl);
+            if (!imageData) {
+                Alert.alert('Error', 'No se pudo cargar la imagen para el PDF. Se generará sin ella.');
+            }
+        }
 
         const docDefinition = {
-            content: content,
+            content: [
+                {
+                    text: 'Detalle de Ficha de Trampa',
+                    style: 'header'
+                },
+                {
+                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#ddd' }],
+                    margin: [0, 0, 0, 10]
+                },
+                {
+                    text: `N° Trampa: ${formatValue('n_trampa', ficha.n_trampa)}`,
+                    style: 'mainInfo'
+                },
+                {
+                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 1, lineColor: '#ddd' }],
+                    margin: [0, 0, 0, 15]
+                },
+
+                {
+                    text: 'Datos de Ubicación',
+                    style: 'sectionHeader'
+                },
+                {
+                    style: 'sectionTable',
+                    table: {
+                        widths: ['*', '*'],
+                        body: [
+                            [{ text: 'Región:', style: 'label' }, { text: formatValue('region', ficha.region), style: 'value' }],
+                            [{ text: 'Oficina:', style: 'label' }, { text: formatValue('oficina', ficha.oficina), style: 'value' }],
+                            [{ text: 'Cuadrante:', style: 'label' }, { text: formatValue('cuadrante', ficha.cuadrante), style: 'value' }],
+                            [{ text: 'Subcuadrante:', style: 'label' }, { text: formatValue('subcuadrante', ficha.subcuadrante), style: 'value' }],
+                            [{ text: 'Ruta:', style: 'label' }, { text: formatValue('ruta', ficha.ruta), style: 'value' }],
+                            [{ text: 'Condición:', style: 'label' }, { text: formatValue('condiciones_trampa', null), style: 'value' }],
+                            [{ text: 'Huso:', style: 'label' }, { text: formatValue('huso', ficha.huso), style: 'value' }],
+                        ]
+                    },
+                    layout: 'noBorders'
+                },
+                {
+                    text: 'Datos de Actividad',
+                    style: 'sectionHeader'
+                },
+                {
+                    style: 'sectionTable',
+                    table: {
+                        widths: ['*', '*'],
+                        body: [
+                            [{ text: 'Fecha:', style: 'label' }, { text: formatValue('fecha', ficha.fecha), style: 'value' }],
+                            [{ text: 'Actividad:', style: 'label' }, { text: formatValue('actividad', ficha.actividad), style: 'value' }],
+                            [{ text: 'Prospector:', style: 'label' }, { text: formatValue('prospector', ficha.prospector), style: 'value' }],
+                            [{ text: 'Localización:', style: 'label' }, { text: formatValue('localizacion', ficha.localizacion), style: 'value' }],
+                            [{ text: 'Observaciones:', style: 'label' }, { text: formatValue('observaciones', ficha.observaciones), style: 'value' }],
+                        ]
+                    },
+                    layout: 'noBorders'
+                },
+                // Agrega la imagen si existe y se pudo convertir
+                imageData ? {
+                    text: 'Imagen de la Ficha:',
+                    style: 'label',
+                    margin: [0, 10, 0, 5]
+                } : null,
+                imageData ? {
+                    image: imageData, // Usa los datos Base64 de la imagen
+                    width: 250, // Ajusta el ancho de la imagen en el PDF
+                    alignment: 'center',
+                    margin: [0, 5, 0, 15]
+                } : null,
+                {
+                    canvas: [{ type: 'line', x1: 0, y1: 5, x2: 515, y2: 5, lineWidth: 0.5, lineColor: '#eee' }],
+                    margin: [0, 5, 0, 5]
+                },
+                {
+                    text: `Generado el: ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}`,
+                    style: 'footer',
+                    margin: [0, 20, 0, 0]
+                }
+            ].filter(Boolean), // Filtra los elementos nulos (como el de la imagen si no existe)
             styles: {
-                h1: { fontSize: 22, bold: true, margin: [0, 0, 0, 10] },
-                h2: { fontSize: 18, bold: true, margin: [0, 10, 0, 5] },
-                p: { fontSize: 12, margin: [0, 2, 0, 2] },
-                strong: { bold: true },
+                header: {
+                    fontSize: 24,
+                    bold: true,
+                    margin: [0, 0, 0, 15],
+                    alignment: 'center',
+                    color: '#37474F'
+                },
+                mainInfo: {
+                    fontSize: 18,
+                    bold: true,
+                    alignment: 'center',
+                    margin: [0, 5, 0, 5],
+                    color: '#E15252'
+                },
+                sectionHeader: {
+                    fontSize: 18,
+                    bold: true,
+                    margin: [0, 15, 0, 10],
+                    color: '#455A64',
+                    decoration: 'underline'
+                },
+                sectionTable: {
+                    margin: [0, 5, 0, 10]
+                },
+                label: {
+                    bold: true,
+                    fontSize: 12,
+                    color: '#607D8B',
+                    margin: [0, 2, 0, 2]
+                },
+                value: {
+                    fontSize: 12,
+                    color: '#333',
+                    margin: [0, 2, 0, 2]
+                },
+                footer: {
+                    fontSize: 10,
+                    color: '#777',
+                    alignment: 'right'
+                }
             },
             defaultStyle: {
-                font: 'Roboto', // Asegúrate de que esta fuente esté disponible o sea una de las fuentes base de pdfmake
+                // Si la fuente 'Roboto' no está cargada globalmente en pdfMake,
+                // es mejor quitar esta línea para que use las fuentes por defecto de pdfMake,
+                // o bien, cargar 'Roboto' explícitamente en vfsFonts (más complejo para web).
+                // Por ahora, la dejaremos comentada si no has configurado una fuente Roboto personalizada.
+                // font: 'Roboto' 
             }
         };
 
         try {
-            // pdfMake funciona directamente en web para descargar. En mobile (Expo Go/build),
-            // necesitarías usar `expo-file-system` y `expo-sharing` para guardar/abrir el PDF.
+            // pdfMake funciona directamente en web para descargar.
             if (Platform.OS === 'web') {
                 pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
                 Alert.alert('Éxito', 'PDF generado y descargado.');
             } else {
-                // Implementación para React Native (Expo)
+                // Esto es para React Native (móvil)
+                // Asegúrate de que expo-file-system y expo-sharing estén importados
                 const pdfDocGenerator = pdfMake.createPdf(docDefinition);
                 pdfDocGenerator.getBase64(async (data) => {
                     const filename = `Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`;
-                    // Asegúrate de que el directorio de documentos sea accesible y exista
                     const pathToSave = `${FileSystem.documentDirectory}${filename}`;
                     await FileSystem.writeAsStringAsync(pathToSave, data, { encoding: FileSystem.EncodingType.Base64 });
                     await Sharing.shareAsync(pathToSave, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
@@ -392,16 +506,15 @@ const styles = StyleSheet.create({
     },
     buttonContainer: {
         flexDirection: 'row',
-        justifyContent: 'center', // Centra los botones en la fila
+        justifyContent: 'center',
         marginTop: 30,
         marginBottom: 20,
-        // No necesitamos paddingHorizontal aquí si los botones tienen marginHorizontal
     },
     button: {
         paddingVertical: 14,
         paddingHorizontal: 28,
         borderRadius: 10,
-        minWidth: 140, // Mantenemos el ancho mínimo para que el texto se vea bien
+        minWidth: 140,
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: '#000',
@@ -412,7 +525,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.2,
         shadowRadius: 4.65,
         elevation: 6,
-        marginHorizontal: 5, // Añade un pequeño margen a cada lado de cada botón
+        marginHorizontal: 5,
     },
     modifyButton: {
         backgroundColor: '#FFC107',
