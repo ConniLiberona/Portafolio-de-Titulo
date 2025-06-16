@@ -1,14 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react'; // Importa useCallback
 import { StyleSheet, Text, View, ScrollView, Alert, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native'; // Importa useFocusEffect
 
 // Importaciones para PDF
 import pdfMake from 'pdfmake/build/pdfmake';
 import vfsFonts from 'pdfmake/build/vfs_fonts';
 pdfMake.vfs = vfsFonts.vfs;
 import htmlToPdfmake from 'html-to-pdfmake';
+
+// Importaciones para Expo (manejo de archivos y compartir PDF en móvil)
+// Asegúrate de haber instalado estas librerías: npx expo install expo-file-system expo-sharing
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 
 const db = getFirestore(appMoscasSAG);
 
@@ -21,32 +26,40 @@ export default function DetalleFicha({ route }) {
     const navigation = useNavigation();
 
     // Función para cargar los datos de la ficha desde Firestore
-    useEffect(() => {
-        const fetchFicha = async () => {
-            setLoading(true);
-            setError(null);
-            try {
-                const docRef = doc(db, 'fichas', fichaId);
-                const docSnap = await getDoc(docRef);
-                if (docSnap.exists()) {
-                    const fichaData = docSnap.data();
-                    setFicha(fichaData);
-                    console.log('Datos de la ficha cargados:', fichaData);
-                    console.log('URL de la imagen (desde ficha.imageUrl):', fichaData.imageUrl);
-                } else {
-                    setError('Ficha no encontrada');
-                    console.log('Ficha no encontrada para ID:', fichaId);
-                }
-            } catch (e) {
-                setError('Error al cargar la ficha');
-                console.error('Error al obtener la ficha:', e);
-            } finally {
-                setLoading(false);
+    const fetchFicha = async () => { // Hacemos fetchFicha una función independiente
+        setLoading(true);
+        setError(null);
+        try {
+            const docRef = doc(db, 'fichas', fichaId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                const fichaData = docSnap.data();
+                setFicha(fichaData);
+                console.log('Datos de la ficha cargados:', fichaData);
+                console.log('URL de la imagen (desde ficha.imageUrl):', fichaData.imageUrl);
+            } else {
+                setError('Ficha no encontrada');
+                console.log('Ficha no encontrada para ID:', fichaId);
             }
-        };
+        } catch (e) {
+            setError('Error al cargar la ficha');
+            console.error('Error al obtener la ficha:', e);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-        fetchFicha();
-    }, [fichaId]);
+    // Usar useFocusEffect para volver a cargar los datos cada vez que la pantalla entre en foco
+    useFocusEffect(
+      useCallback(() => {
+        fetchFicha(); // Llama a la función de carga
+        // Opcional: Retorna una función de limpieza si es necesario
+        return () => {
+          // Cualquier limpieza para cuando la pantalla se desenfoca
+        };
+      }, [fichaId]) // Vuelve a ejecutar el efecto si fichaId cambia
+    );
+
 
     // Maneja el movimiento de una ficha a la papelera
     const handleDeleteFicha = async () => {
@@ -89,6 +102,7 @@ export default function DetalleFicha({ route }) {
 
     // Maneja la navegación a la pantalla de modificación
     const handleModifyFicha = () => {
+        // Asegúrate de pasar los datos actuales de la ficha al componente de edición
         navigation.navigate('EditarFicha', { fichaId: fichaId, currentFichaData: ficha });
     };
 
@@ -107,6 +121,7 @@ export default function DetalleFicha({ route }) {
         }
         if (key === 'condiciones_trampa') {
             let condiciones = [];
+            // Accede directamente a las propiedades booleanas del objeto ficha
             if (ficha?.condicion_fija) condiciones.push('Fija');
             if (ficha?.condicion_movil) condiciones.push('Móvil');
             if (ficha?.condicion_temporal) condiciones.push('Temporal');
@@ -125,6 +140,10 @@ export default function DetalleFicha({ route }) {
             return;
         }
 
+        // Importante: Al generar HTML para PDF, las imágenes deben estar en base64 o accesibles públicamente.
+        // pdfMake puede cargar imágenes desde URLs, pero es más robusto si están en un formato directo.
+        // Para URLs externas, pdfMake las intentará descargar, lo que podría fallar por CORS o red.
+        // Si tienes problemas con las imágenes en el PDF, considera convertir la imagen a Base64 antes de incluirla.
         let htmlContent = `
             <h1>Detalle de Ficha</h1>
             <p><strong>N° Trampa:</strong> ${formatValue('n_trampa', ficha.n_trampa)}</p>
@@ -143,7 +162,7 @@ export default function DetalleFicha({ route }) {
             <p><strong>Localización:</strong> ${formatValue('localizacion', ficha.localizacion)}</p>
             <p><strong>Observaciones:</strong> ${formatValue('observaciones', ficha.observaciones)}</p>
             ${ficha.imageUrl ? `<p><strong>Imagen:</strong> <img src="${ficha.imageUrl}" width="200" /></p>` : ''}
-            <p><em>Generado el: ${new Date().toLocaleDateString('es-ES')}</em></p>
+            <p><em>Generado el: ${new Date().toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}</em></p>
         `;
 
         const content = htmlToPdfmake(htmlContent, {
@@ -159,13 +178,28 @@ export default function DetalleFicha({ route }) {
                 strong: { bold: true },
             },
             defaultStyle: {
-                font: 'Roboto',
+                font: 'Roboto', // Asegúrate de que esta fuente esté disponible o sea una de las fuentes base de pdfmake
             }
         };
 
         try {
-            pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
-            Alert.alert('Éxito', 'PDF generado y descargado.');
+            // pdfMake funciona directamente en web para descargar. En mobile (Expo Go/build),
+            // necesitarías usar `expo-file-system` y `expo-sharing` para guardar/abrir el PDF.
+            if (Platform.OS === 'web') {
+                pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
+                Alert.alert('Éxito', 'PDF generado y descargado.');
+            } else {
+                // Implementación para React Native (Expo)
+                const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                pdfDocGenerator.getBase64(async (data) => {
+                    const filename = `Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`;
+                    // Asegúrate de que el directorio de documentos sea accesible y exista
+                    const pathToSave = `${FileSystem.documentDirectory}${filename}`;
+                    await FileSystem.writeAsStringAsync(pathToSave, data, { encoding: FileSystem.EncodingType.Base64 });
+                    await Sharing.shareAsync(pathToSave, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+                    Alert.alert('Éxito', 'PDF generado y compartido.');
+                });
+            }
         } catch (pdfError) {
             Alert.alert('Error', `Error al generar el PDF: ${pdfError.message || 'Error desconocido'}`);
             console.error('Error generando PDF:', pdfError);
