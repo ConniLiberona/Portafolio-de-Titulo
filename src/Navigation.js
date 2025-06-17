@@ -1,15 +1,18 @@
 // src/Navigation.js
 import 'react-native-gesture-handler';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react'; // <-- AÑADE useContext
 import { createStackNavigator } from '@react-navigation/stack';
 import { NavigationContainer } from '@react-navigation/native';
 import { Platform, ActivityIndicator, View, StyleSheet, Text, SafeAreaView } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
-import { useFonts } from 'expo-font'; // <-- Importamos useFonts
+import { useFonts } from 'expo-font';
 
 // Asegúrate de que esta es la ÚNICA línea para importar appMoscasSAG
 import appMoscasSAG from '../credenciales';
-import { getAuth, onAuthStateChanged } from 'firebase/auth';
+import { getAuth, onAuthStateChanged } from 'firebase/auth'; // Mantén esta importación
+
+// Importa tu AuthContext
+import { AuthContext } from './context/AuthContext'; // <-- Importa tu AuthContext
 
 // Importaciones de Pantallas
 import Login from './screens/Login';
@@ -21,50 +24,44 @@ import MapScreenNative from './screens/MapScreen';
 import MapScreenWeb from './screens/MapScreen.web';
 import EditarFicha from './screens/EditarFicha';
 import PapeleraScreen from './screens/PapeleraScreen';
+// --- NUEVOS COMPONENTES DE PANTALLA ---
+import UserProfileScreen from './screens/UserProfileScreen'; // ¡AÑADE ESTO!
+import AdminUserManagementScreen from './screens/AdminUserManagementScreen'; // ¡AÑADE ESTO!
+// --- FIN NUEVOS COMPONENTES ---
 
 const Stack = createStackNavigator();
-const auth = getAuth(appMoscasSAG);
+const auth = getAuth(appMoscasSAG); // Aún necesitas la instancia de auth aquí para onAuthStateChanged
 
-// Mantenemos la splash screen visible hasta que indiquemos lo contrario
 SplashScreen.preventAutoHideAsync();
 
 export default function Navigation() {
-  const [initializing, setInitializing] = useState(true);
-  const [user, setUser] = useState(null);
+  // Ya no necesitas los estados 'user' y 'initializing' aquí,
+  // porque los obtendrás del AuthContext
+  const { user, userClaims, loading } = useContext(AuthContext); // <-- Obtén user, userClaims y loading del contexto
 
   // Carga las fuentes
   const [fontsLoaded] = useFonts({
-    'Montserrat-Regular': require('../assets/fonts/Montserrat-Regular.ttf'), // Ajusta la ruta si es diferente
-    'Montserrat-Bold': require('../assets/fonts/Montserrat-Bold.ttf'),     // Ajusta la ruta si es diferente
+    'Montserrat-Regular': require('../assets/fonts/Montserrat-Regular.ttf'),
+    'Montserrat-Bold': require('../assets/fonts/Montserrat-Bold.ttf'),
   });
 
-  // Hook para manejar el estado de la aplicación y autenticación
-  useEffect(() => {
-    // Listener para el estado de autenticación de Firebase
-    const subscriber = onAuthStateChanged(auth, (firebaseUser) => {
-      console.log("Navigation: onAuthStateChanged - Estado de autenticación cambiado.");
-      console.log("Navigation: firebaseUser recibido:", firebaseUser ? firebaseUser.email : "null");
-      setUser(firebaseUser);
-      if (initializing) {
-        setInitializing(false); // Una vez que sabemos el estado inicial de autenticación
-      }
-    });
-
-    return () => subscriber(); // Limpia el listener al desmontar el componente
-  }, [initializing]);
+  // El useEffect de onAuthStateChanged AHORA ESTÁ EN TU AuthContext.js
+  // Puedes eliminar el `useEffect` y los estados `initializing` y `user` de este componente.
+  // Tu `AuthContext.js` ya maneja toda la lógica de suscripción al estado de autenticación
+  // y de obtención de claims.
 
   // Callback para ocultar la splash screen una vez que el contenido esté montado
   const onLayoutRootView = useCallback(async () => {
-    // Si las fuentes están cargadas Y la inicialización de Firebase ha terminado
-    if (fontsLoaded && !initializing) {
-      await SplashScreen.hideAsync(); // Oculta la splash screen
+    // Si las fuentes están cargadas Y el AuthContext ha terminado de cargar el usuario inicial
+    if (fontsLoaded && !loading) { // <-- Usa 'loading' del contexto
+      await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, initializing]); // Dependencias para que se ejecute cuando estos estados cambien
+  }, [fontsLoaded, loading]); // <-- Dependencia de 'loading' del contexto
 
   // Si la app no está completamente lista (fuentes no cargadas o auth en proceso), muestra un indicador de carga
-  if (!fontsLoaded || initializing) {
+  if (!fontsLoaded || loading) { // <-- Usa 'loading' del contexto
     return (
-      <View style={styles.loadingContainer}>
+      <View style={styles.loadingContainer} onLayout={onLayoutRootView}> {/* onLayout aquí para ocultar splash */}
         <ActivityIndicator size="large" color="#2E7D32" />
         <Text style={styles.loadingText}>Cargando aplicación...</Text>
       </View>
@@ -81,12 +78,10 @@ export default function Navigation() {
             headerTintColor: "white",
             headerTitleAlign: "center",
             headerStyle: { backgroundColor: "rgba(138, 154, 91, 0.81)" },
-            // --- CAMBIO AQUÍ: Aplica la fuente Montserrat-Bold al título del encabezado ---
             headerTitleStyle: {
               fontFamily: 'Montserrat-Bold',
-              fontSize: 18, // Puedes ajustar el tamaño si lo deseas
+              fontSize: 18,
             },
-            // --- FIN CAMBIO ---
             presentation: 'modal',
           }}
         >
@@ -98,7 +93,7 @@ export default function Navigation() {
                 options={{
                   title: "HOME",
                   headerRight: () => null,
-                  headerShown: false // Oculta la cabecera por defecto en Home
+                  headerShown: false
                 }}
               />
               <Stack.Screen name="NuevaFicha" component={NuevaFicha} options={{ title: "NUEVA FICHA" }} />
@@ -113,7 +108,15 @@ export default function Navigation() {
               />
               <Stack.Screen name="EditarFicha" component={EditarFicha} options={{ title: "EDITAR FICHA" }} />
               <Stack.Screen name="Papelera" component={PapeleraScreen} options={{ title: "PAPELERA" }} />
-              {/* Puedes añadir más pantallas aquí si son parte de la app principal */}
+
+              {/* --- NUEVAS RUTAS BASADAS EN ROLES --- */}
+              <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: "MI PERFIL" }} />
+
+              {/* RUTA PROTEGIDA PARA ADMINISTRADORES */}
+              {userClaims?.admin && ( // <-- Muestra esta pantalla SOLO si userClaims.admin es true
+                <Stack.Screen name="AdminManagement" component={AdminUserManagementScreen} options={{ title: "GESTIÓN DE USUARIOS" }} />
+              )}
+              {/* --- FIN NUEVAS RUTAS --- */}
             </>
           ) : ( // Si no hay usuario (deslogeado), muestra la pantalla de Login
             <Stack.Screen
@@ -122,7 +125,7 @@ export default function Navigation() {
               options={{
                 title: "MONITOREO DE TRAMPAS",
                 headerRight: () => null,
-                headerShown: false, // Oculta cualquier botón en la cabecera del login
+                headerShown: false,
               }}
             />
           )}
@@ -137,15 +140,15 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(138, 154, 91, 0.4)', // Puedes usar un color de fondo más neutral o el color de tu splash screen
+    backgroundColor: 'rgba(138, 154, 91, 0.4)',
   },
   loadingText: {
     marginTop: 10,
     color: '#555',
-    fontFamily: 'Montserrat-Regular', // Aplicamos la fuente regular aquí también
+    fontFamily: 'Montserrat-Regular',
     fontSize: 16,
   },
   safeArea: {
-    flex: 1, // ¡Crucial! Asegura que la aplicación ocupe toda la altura disponible
+    flex: 1,
   },
 });

@@ -13,25 +13,44 @@ const db = getFirestore(appMoscasSAG);
 
 const APP_HORIZONTAL_PADDING = 24;
 
+// Las constantes de días activos/vencimiento ya no son estrictamente necesarias
+// para el CONTEO si el estado ya está definido en la BD.
+// Las mantengo aquí por si las usas para otra lógica o validación futura.
 const DAYS_ACTIVE = 14;
 const DAYS_NEAR_EXPIRY = 28;
 
-const determinarEstadoTrampa = (fecha_instalacion, plaga_detectada = false, retirada = false) => {
+/**
+ * [OPCIONAL] Función para determinar el estado de una trampa basada en lógica de fechas.
+ * Esto SOLO se usa si el campo 'estado' en Firestore no es el que quieres para el resumen
+ * o si quieres tener una lógica de estado calculada en algún otro lugar de la app.
+ * Para el resumen operacional, si ya tienes un campo 'estado' en Firestore, no se usa.
+ *
+ * @param {firebase.firestore.Timestamp | Date} fecha_instalacion La fecha de instalación de la trampa.
+ * @param {boolean} plaga_detectada Indica si se ha detectado plaga.
+ * @param {boolean} retirada Indica si la trampa ha sido retirada.
+ * @returns {string} El estado de la trampa ("Activa", "Próxima a vencer", "Vencida", "Inactiva/Retirada", "Fecha Inválida").
+ */
+const determinarEstadoTrampaPorLogicaDeFechas = (fecha_instalacion, plaga_detectada = false, retirada = false) => {
     if (retirada) {
         return "Inactiva/Retirada";
     }
-    // Si la plaga es detectada, pero el estado "Requiere revisión" ya no se mostrará,
-    // podríamos simplemente dejar que pase a los siguientes estados o considerarla como "Inactiva/Retirada"
-    // para que no se sume al total de trampas mostradas si no quieres contarla en absoluto.
-    // Para este caso, si no se muestra, la manejaremos como si no existiera en el resumen.
-    // Por ahora, la dejaré como estaba en la función, y la exclusión se hará en fetchTrapCounts.
-    // if (plaga_detectada) {
-    //     return "Requiere revisión"; // Esta línea se vuelve menos relevante si no la mostramos
-    // }
+
+    let instalacion = fecha_instalacion;
+    if (instalacion && typeof instalacion.toDate === 'function') {
+        instalacion = instalacion.toDate();
+    }
+
+    if (!(instalacion instanceof Date) || isNaN(instalacion.getTime())) {
+        console.warn("determinarEstadoTrampaPorLogicaDeFechas: fecha_instalacion no es una fecha válida. Retornando 'Fecha Inválida'.", fecha_instalacion);
+        return "Fecha Inválida";
+    }
 
     const hoy = new Date();
-    const instalacion = fecha_instalacion instanceof Date ? fecha_instalacion : fecha_instalacion.toDate();
-    const diffTime = Math.abs(hoy - instalacion);
+    // Normalizamos 'hoy' a medianoche para que la diferencia de días sea precisa
+    hoy.setHours(0, 0, 0, 0); 
+    instalacion.setHours(0, 0, 0, 0); 
+
+    const diffTime = Math.abs(hoy.getTime() - instalacion.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays < DAYS_ACTIVE) {
@@ -43,6 +62,7 @@ const determinarEstadoTrampa = (fecha_instalacion, plaga_detectada = false, reti
     }
 };
 
+
 export default function Home() {
     const navigation = useNavigation();
     const isFocused = useIsFocused();
@@ -51,8 +71,10 @@ export default function Home() {
         'Activa': 0,
         'Próxima a vencer': 0,
         'Vencida': 0,
-        // 'Requiere revisión': 0, // Eliminado de la inicialización de conteo
+        'Inactiva/Retirada': 0, // Añadido para conteo si lo quieres mostrar
         'Total': 0,
+        // Si tienes otros estados definidos en Firestore, agrégalos aquí.
+        // Por ejemplo: 'Requiere Revisión': 0
     });
     const [loadingCounts, setLoadingCounts] = useState(true);
     const [lastUpdateDate, setLastUpdateDate] = useState('N/A');
@@ -61,14 +83,12 @@ export default function Home() {
     const animatedOpacityActive = useRef(new Animated.Value(1)).current;
     const animatedOpacityNearExpiry = useRef(new Animated.Value(1)).current;
     const animatedOpacityExpired = useRef(new Animated.Value(1)).current;
-    // const animatedOpacityNeedsReview = useRef(new Animated.Value(1)).current; // Eliminado
 
-    // Mapa de referencias animadas por estado (actualizado)
+    // Mapa de referencias animadas por estado
     const animatedOpacities = {
         'Activa': animatedOpacityActive,
         'Próxima a vencer': animatedOpacityNearExpiry,
         'Vencida': animatedOpacityExpired,
-        // 'Requiere revisión': animatedOpacityNeedsReview, // Eliminado
     };
 
     // Función para iniciar la animación de parpadeo
@@ -100,10 +120,8 @@ export default function Home() {
 
     // Efecto para controlar las animaciones de parpadeo
     useEffect(() => {
-        // Definimos los estados que queremos que parpadeen
-        const statesToBlink = ['Próxima a vencer', 'Vencida']; // No incluye 'Requiere revisión'
+        const statesToBlink = ['Próxima a vencer', 'Vencida'];
 
-        // Recorre solo los estados definidos para parpadear
         Object.keys(animatedOpacities).forEach(estado => {
             const animatedValue = animatedOpacities[estado];
             if (statesToBlink.includes(estado) && trapCounts[estado] > 0) {
@@ -113,7 +131,6 @@ export default function Home() {
             }
         });
 
-        // Limpia las animaciones cuando el componente se desmonta o la pantalla pierde el foco
         return () => {
             Object.keys(animatedOpacities).forEach(estado => {
                 const animatedValue = animatedOpacities[estado];
@@ -125,14 +142,17 @@ export default function Home() {
 
     const fetchTrapCounts = async () => {
         setLoadingCounts(true);
+        // Resetear los conteos para cada carga
         const counts = {
             'Activa': 0,
             'Próxima a vencer': 0,
             'Vencida': 0,
-            // 'Requiere revisión': 0, // Eliminado de la inicialización de conteo local
+            'Inactiva/Retirada': 0,
             'Total': 0,
+            // Asegúrate de incluir cualquier otro estado que exista en tu campo 'estado' de Firestore
+            'Estado Desconocido': 0, // Para estados que no esperábamos
         };
-        let latestTimestamp = null;
+        let latestTimestamp = null; 
 
         try {
             const q = query(collection(db, 'pins'));
@@ -141,44 +161,59 @@ export default function Home() {
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
 
-                let currentTimestamp = null;
+                // *** CAMBIO CLAVE AQUÍ ***
+                // Usar directamente el campo 'estado' del documento de Firestore
+                const estadoGuardadoEnFirestore = data.estado; 
+                
+                // Incrementar el contador del estado que viene de Firestore
+                if (typeof estadoGuardadoEnFirestore === 'string' && counts.hasOwnProperty(estadoGuardadoEnFirestore)) {
+                    counts[estadoGuardadoEnFirestore]++;
+                } else if (typeof estadoGuardadoEnFirestore === 'string') {
+                    // Si el estado es una cadena pero no está en nuestros contadores predefinidos
+                    // Lo puedes contar aquí o simplemente emitir un warning
+                    console.warn(`Estado no reconocido '${estadoGuardadoEnFirestore}' para el documento '${doc.id}'. Se cuenta en 'Estado Desconocido'.`);
+                    counts['Estado Desconocido']++;
+                } else {
+                    // Si el campo 'estado' no existe o no es una cadena
+                    console.warn(`Documento '${doc.id}' no tiene un campo 'estado' válido. Se cuenta en 'Estado Desconocido'.`);
+                    counts['Estado Desconocido']++;
+                }
+                
+                counts.Total++; // Siempre incrementar el total
+
+                // --- Lógica para el latestTimestamp (Última Actualización General del Dashboard) ---
+                // Esto sigue usando el 'timestamp' del documento (fecha de última modificación).
+                let currentDocTimestamp = null;
                 if (data.timestamp && typeof data.timestamp.toDate === 'function') {
-                    currentTimestamp = data.timestamp.toDate();
+                    currentDocTimestamp = data.timestamp.toDate();
                 } else if (data.timestamp instanceof Date) {
-                    currentTimestamp = data.timestamp;
+                    currentDocTimestamp = data.timestamp;
                 }
 
-                if (currentTimestamp && (!latestTimestamp || currentTimestamp > latestTimestamp)) {
-                    latestTimestamp = currentTimestamp;
-                }
-
-                if (data.lat && data.lng && data.description) {
-                    const fechaInstalacion = data.fecha_instalacion ? (typeof data.fecha_instalacion.toDate === 'function' ? data.fecha_instalacion.toDate() : data.fecha_instalacion) : (data.timestamp ? (typeof data.timestamp.toDate === 'function' ? data.timestamp.toDate() : data.timestamp) : new Date());
-
-                    const estadoFinal = data.estado || determinarEstadoTrampa(
-                        fechaInstalacion,
-                        data.plaga_detectada || false,
-                        data.retirada || false
-                    );
-
-                    // Excluimos 'Inactiva/Retirada' y 'Requiere revisión' del conteo
-                    if (estadoFinal !== 'Inactiva/Retirada' && estadoFinal !== 'Requiere revisión') {
-                        if (counts.hasOwnProperty(estadoFinal)) {
-                            counts[estadoFinal]++;
-                        }
-                        counts.Total++;
-                    }
+                if (currentDocTimestamp instanceof Date && !isNaN(currentDocTimestamp.getTime()) && 
+                    (!latestTimestamp || currentDocTimestamp > latestTimestamp)) {
+                    latestTimestamp = currentDocTimestamp;
                 }
             });
 
             setTrapCounts(counts);
+            // Formatear la fecha de la última actualización
             if (latestTimestamp) {
-                setLastUpdateDate(latestTimestamp.toLocaleDateString());
+                const options = { 
+                    year: 'numeric', 
+                    month: '2-digit', 
+                    day: '2-digit', 
+                    hour: '2-digit', 
+                    minute: '2-digit',
+                    hour12: false // Formato 24 horas
+                };
+                setLastUpdateDate(latestTimestamp.toLocaleDateString('es-CL', options)); 
             } else {
                 setLastUpdateDate('N/A');
             }
         } catch (error) {
             console.error("Error al cargar los conteos de trampas: ", error);
+            // showInfoModal("Error de Carga", "No se pudieron cargar los datos del resumen. Intenta de nuevo.", true);
         } finally {
             setLoadingCounts(false);
         }
@@ -193,7 +228,6 @@ export default function Home() {
 
     const handleLogout = async () => {
         console.log("¡Botón 'Cerrar Sesión' PRESIONADO! (Inicio de handleLogout)");
-        console.log("handleLogout: Intentando signOut DIRECTAMENTE (sin alerta de confirmación)...");
         try {
             if (!auth) {
                 console.error("handleLogout: La instancia de autenticación (auth) no está definida.");
@@ -208,14 +242,13 @@ export default function Home() {
         }
     };
 
-    // Componente auxiliar para renderizar una fila de estado con parpadeo
     const StatusRow = ({ estado, count, animatedOpacity }) => (
         <View style={styles.statusItem}>
             <Animated.View
                 style={[
                     styles.colorIndicator,
                     { backgroundColor: getEstadoColor(estado) },
-                    { opacity: animatedOpacity }
+                    animatedOpacity ? { opacity: animatedOpacity } : null 
                 ]}
             />
             <Text style={styles.cardText}>{estado}: <Text style={styles.highlightText}>{count}</Text></Text>
@@ -267,7 +300,13 @@ export default function Home() {
                                     <StatusRow estado="Activa" count={trapCounts.Activa} animatedOpacity={animatedOpacities['Activa']} />
                                     <StatusRow estado="Próxima a vencer" count={trapCounts['Próxima a vencer']} animatedOpacity={animatedOpacities['Próxima a vencer']} />
                                     <StatusRow estado="Vencida" count={trapCounts.Vencida} animatedOpacity={animatedOpacities['Vencida']} />
-                                    {/* Eliminada la línea para "Requiere revisión" */}
+                                    {/* Muestra conteos para otros estados si los tienes en trapCounts y quieres visualizarlos */}
+                                    {trapCounts['Inactiva/Retirada'] > 0 && (
+                                        <StatusRow estado="Inactiva/Retirada" count={trapCounts['Inactiva/Retirada']} />
+                                    )}
+                                    {trapCounts['Estado Desconocido'] > 0 && (
+                                        <StatusRow estado="Estado Desconocido" count={trapCounts['Estado Desconocido']} />
+                                    )}
 
                                     <Text style={styles.cardText}>Última actualización: <Text style={styles.highlightText}>{lastUpdateDate}</Text></Text>
                                 </>
@@ -484,6 +523,7 @@ const getEstadoColor = (estado) => {
         case 'Vencida': return '#F44336'; // Rojo
         case 'Inactiva/Retirada': return '#9E9E9E'; // Gris (se mantiene la definición aunque no se muestre)
         case 'Requiere revisión': return '#2196F3'; // Azul (se mantiene la definición aunque no se muestre)
-        default: return '#000';
+        case 'Estado Desconocido': return '#78909C'; // Para estados no mapeados/válidos
+        default: return '#000'; // Color por defecto si el estado no está en la lista
     }
 };

@@ -1,10 +1,13 @@
 // src/screens/Login.js
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react'; // <-- Importa useContext
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 
 // Importaciones de Firebase
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import appMoscasSAG from '../../credenciales';
+
+// Importa tu AuthContext
+import { AuthContext } from '../context/AuthContext'; // <-- Asegúrate de que la ruta sea correcta
 
 // Obtiene la instancia de autenticación de Firebase
 const auth = getAuth(appMoscasSAG);
@@ -15,20 +18,26 @@ const { width, height } = Dimensions.get('window');
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [notificationMessage, setNotificationMessage] = useState(''); // Estado para el mensaje de la notificación
-  const [showNotification, setShowNotification] = useState(false); // Estado para mostrar/ocultar la notificación
-  const [notificationType, setNotificationType] = useState('success'); // 'success' o 'error' para estilos
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationType, setNotificationType] = useState('success');
 
-  // Función auxiliar para mostrar la notificación
+  // Usa el AuthContext
+  const { setUser, setUserClaims } = useContext(AuthContext); // Aunque onAuthStateChanged ya lo actualiza,
+                                                             // si no tienes un listener global, necesitarías esto.
+                                                             // Dado que ya lo tienes en AuthContext,
+                                                             // no es estrictamente necesario aquí, pero lo mantengo
+                                                             // como referencia de cómo se actualizaría si no hubiera
+                                                             // un listener global.
+
   const showUserNotification = (message, type = 'success') => {
     setNotificationMessage(message);
     setNotificationType(type);
     setShowNotification(true);
-    // Opcional: Ocultar la notificación automáticamente después de unos segundos
     setTimeout(() => {
       setShowNotification(false);
-      setNotificationMessage(''); // Limpiar el mensaje
-    }, 5000); // La notificación se ocultará después de 5 segundos
+      setNotificationMessage('');
+    }, 5000);
   };
 
   const handleLogin = async () => {
@@ -37,9 +46,14 @@ export default function Login() {
       return;
     }
     try {
+      // signInWithEmailAndPassword ya disparará el onAuthStateChanged en AuthContext
+      // que a su vez obtendrá los claims.
       await signInWithEmailAndPassword(auth, email, password);
       console.log('Usuario ha iniciado sesión');
+      showUserNotification('Inicio de sesión exitoso.', 'success'); // Notificación de éxito
       // La navegación se maneja automáticamente por Navigation.js (onAuthStateChanged)
+      // No necesitas obtener claims aquí, el AuthContext ya lo hace.
+
     } catch (error) {
       console.error("Error al iniciar sesión:", error.code, error.message);
       let errorMessage = "Error al iniciar sesión. Por favor, verifica tus credenciales.";
@@ -50,41 +64,38 @@ export default function Login() {
       } else if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         errorMessage = "Correo electrónico o contraseña incorrectos.";
       }
-      showUserNotification(errorMessage, 'error'); // Mostrar error con la notificación personalizada
+      showUserNotification(errorMessage, 'error');
     }
   };
 
-const handleForgotPassword = async () => {
-  // ... tus console.log existentes ...
-
-  if (!email) {
-    showUserNotification("Por favor, ingresa tu correo electrónico para restablecer la contraseña.", 'error');
-    return;
-  }
-
-  console.log("handleForgotPassword: Email no está vacío. Intentando enviar correo a:", email);
-
-  try {
-    await sendPasswordResetEmail(auth, email);
-    console.log("handleForgotPassword: Correo de restablecimiento enviado con éxito.");
-    showUserNotification(`Se ha enviado un correo de restablecimiento de contraseña a ${email}. Por favor, revisa tu bandeja de entrada (y spam).`);
-
-  } catch (error) {
-    // --- CAMBIO CLAVE AQUÍ ---
-    console.error("handleForgotPassword: Error al enviar correo de restablecimiento:", error.code, error.message);
-    let errorMessage = "Error al enviar el correo de restablecimiento. Inténtalo de nuevo.";
-
-    if (error.code === 'auth/invalid-email') {
-      errorMessage = "El formato del correo electrónico es inválido.";
-    } else if (error.code === 'auth/user-not-found') {
-      errorMessage = "No hay ningún usuario registrado con este correo electrónico.";
-    } else if (error.code === 'auth/too-many-requests') { // <-- ¡Manejar este error específicamente!
-      errorMessage = "Demasiados intentos. Por favor, inténtalo de nuevo más tarde.";
+  const handleForgotPassword = async () => {
+    if (!email) {
+      showUserNotification("Por favor, ingresa tu correo electrónico para restablecer la contraseña.", 'error');
+      return;
     }
-    showUserNotification(errorMessage, 'error'); // Mostrar error con la notificación personalizada
-  }
-  console.log("handleForgotPassword: Fin de la ejecución.");
-};
+
+    console.log("handleForgotPassword: Email no está vacío. Intentando enviar correo a:", email);
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log("handleForgotPassword: Correo de restablecimiento enviado con éxito.");
+      showUserNotification(`Se ha enviado un correo de restablecimiento de contraseña a ${email}. Por favor, revisa tu bandeja de entrada (y spam).`);
+
+    } catch (error) {
+      console.error("handleForgotPassword: Error al enviar correo de restablecimiento:", error.code, error.message);
+      let errorMessage = "Error al enviar el correo de restablecimiento. Inténtalo de nuevo.";
+
+      if (error.code === 'auth/invalid-email') {
+        errorMessage = "El formato del correo electrónico es inválido.";
+      } else if (error.code === 'auth/user-not-found') {
+        errorMessage = "No hay ningún usuario registrado con este correo electrónico.";
+      } else if (error.code === 'auth/too-many-requests') {
+        errorMessage = "Demasiados intentos. Por favor, inténtalo de nuevo más tarde.";
+      }
+      showUserNotification(errorMessage, 'error');
+    }
+    console.log("handleForgotPassword: Fin de la ejecución.");
+  };
 
   return (
     <View style={styles.container}>
@@ -129,7 +140,6 @@ const handleForgotPassword = async () => {
         <Text style={styles.forgotPasswordText}>¿Olvidaste tu contraseña?</Text>
       </TouchableOpacity>
 
-      {/* --- COMPONENTE DE NOTIFICACIÓN PERSONALIZADA --- */}
       {showNotification && (
         <View style={[styles.notificationBox, notificationType === 'error' ? styles.notificationBoxError : styles.notificationBoxSuccess]}>
           <Text style={styles.notificationText}>{notificationMessage}</Text>
@@ -138,7 +148,6 @@ const handleForgotPassword = async () => {
           </TouchableOpacity>
         </View>
       )}
-      {/* --- FIN COMPONENTE DE NOTIFICACIÓN PERSONALIZADA --- */}
     </View>
   );
 }
@@ -218,37 +227,35 @@ const styles = StyleSheet.create({
     // fontFamily: 'Montserrat-Regular',
     textDecorationLine: 'underline',
   },
-  // --- NUEVOS ESTILOS PARA LA NOTIFICACIÓN CUSTOM ---
   notificationBox: {
-  position: 'absolute',
-  top: 20, // Distancia desde la parte superior
-  left: 20, // Distancia desde la izquierda
-  right: 20, // Distancia desde la derecha (esto hará que ocupe el ancho disponible)
-  // Quita bottom y marginHorizontal si los tenías para esta configuración
-  padding: 15,
-  borderRadius: 8,
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.25,
-  shadowRadius: 3.84,
-  elevation: 5,
-  maxWidth: 400, // Sigue manteniendo un ancho máximo para pantallas grandes
-  alignSelf: 'center', // Centra el box horizontalmente si tiene un maxWidth
-  zIndex: 1000,
-},
+    position: 'absolute',
+    top: 20,
+    left: 20,
+    right: 20,
+    padding: 15,
+    borderRadius: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    maxWidth: 400,
+    alignSelf: 'center',
+    zIndex: 1000,
+  },
   notificationBoxSuccess: {
-    backgroundColor: '#4CAF50', // Verde para éxito
+    backgroundColor: '#4CAF50',
   },
   notificationBoxError: {
-    backgroundColor: '#F44336', // Rojo para error
+    backgroundColor: '#F44336',
   },
   notificationText: {
     color: 'white',
     fontSize: 16,
-    flexShrink: 1, // Permite que el texto se ajuste si es largo
+    flexShrink: 1,
     marginRight: 10,
   },
   notificationCloseButton: {
@@ -259,5 +266,4 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  // --- FIN NUEVOS ESTILOS ---
 });
