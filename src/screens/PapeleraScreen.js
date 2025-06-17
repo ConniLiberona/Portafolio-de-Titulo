@@ -3,9 +3,9 @@ import {
   StyleSheet,
   Text,
   View,
-  FlatList, // Usamos FlatList para listas eficientes
+  FlatList,
   TouchableOpacity,
-  Alert,
+  Alert, // Mantenemos Alert para mensajes de éxito/error si no los reemplazamos con un modal personalizado también
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -14,17 +14,18 @@ import {
   collection,
   query,
   where,
-  getDocs, // Ya no necesitamos 'orderBy' en la consulta de Firestore
+  getDocs,
   doc,
-  updateDoc, // Para restaurar
-  deleteDoc, // Para eliminar permanentemente
+  updateDoc,
+  deleteDoc,
 } from 'firebase/firestore';
-import { getStorage, ref, deleteObject } from 'firebase/storage'; // Para eliminar imagen de Storage
+import { getStorage, ref, deleteObject } from 'firebase/storage';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation, useFocusEffect } from '@react-navigation/native'; // useFocusEffect para recargar al volver
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import ConfirmationModal from './ConfirmationModal'; // Asegúrate de que la ruta sea correcta
 
 const db = getFirestore(appMoscasSAG);
-const storage = getStorage(appMoscasSAG); // Inicializa Storage
+const storage = getStorage(appMoscasSAG);
 
 // Función auxiliar para extraer la ruta de Storage desde una URL de descarga
 function getStoragePathFromUrl(url) {
@@ -48,6 +49,11 @@ export default function PapeleraScreen() {
   const [error, setError] = useState(null);
   const navigation = useNavigation();
 
+  // Estados para los modales de confirmación
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedFicha, setSelectedFicha] = useState(null); // Para guardar la ficha seleccionada para la acción
+
   // Función para cargar las fichas eliminadas
   const fetchFichasEliminadas = async () => {
     setLoading(true);
@@ -55,7 +61,6 @@ export default function PapeleraScreen() {
     try {
       const fichasCollectionRef = collection(db, 'fichas');
       // Consulta: solo filtramos por 'deleted' es true.
-      // Ya no incluimos 'orderBy' en la consulta de Firestore.
       const q = query(
         fichasCollectionRef,
         where('deleted', '==', true),
@@ -66,8 +71,7 @@ export default function PapeleraScreen() {
         ...doc.data(),
       }));
 
-      // AHORA ORDENAMOS LOS DATOS EN EL CLIENTE (en la app)
-      // Esto es flexible para manejar Timestamps, strings o null/undefined
+      // Ahora ordenamos los datos en el cliente (en la app)
       data.sort((a, b) => {
         // Función interna para obtener un objeto Date válido de cualquier formato
         const convertToDate = (value) => {
@@ -115,30 +119,24 @@ export default function PapeleraScreen() {
     }, [])
   );
 
-  const handleRestoreFicha = async (fichaId) => {
-    let confirmRestore = false;
-    if (Platform.OS === 'web') {
-      confirmRestore = window.confirm("¿Estás seguro de que quieres restaurar esta ficha?");
-    } else {
-      confirmRestore = await new Promise((resolve) => {
-        Alert.alert(
-          "Restaurar Ficha",
-          "¿Estás seguro de que quieres restaurar esta ficha?",
-          [
-            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-            { text: "Restaurar", onPress: () => resolve(true) }
-          ],
-          { cancelable: true, onDismiss: () => resolve(false) }
-        );
-      });
-    }
+  // Funciones para mostrar los modales de confirmación
+  const promptRestore = (ficha) => {
+    setSelectedFicha(ficha);
+    setShowRestoreModal(true);
+  };
 
-    if (!confirmRestore) {
-      return;
-    }
+  const promptPermanentDelete = (ficha) => {
+    setSelectedFicha(ficha);
+    setShowDeleteModal(true);
+  };
+
+  // Manejadores de confirmación para los modales
+  const handleConfirmRestore = async () => {
+    setShowRestoreModal(false); // Ocultar el modal
+    if (!selectedFicha) return; // Asegurarse de que hay una ficha seleccionada
 
     try {
-      const docRef = doc(db, 'fichas', fichaId);
+      const docRef = doc(db, 'fichas', selectedFicha.id);
       await updateDoc(docRef, {
         deleted: false,
         deletedAt: null // Opcional: limpiar el campo deletedAt
@@ -148,35 +146,19 @@ export default function PapeleraScreen() {
     } catch (e) {
       Alert.alert("Error", `No se pudo restaurar la ficha: ${e.message}`);
       console.error("Error restoring ficha:", e);
+    } finally {
+      setSelectedFicha(null); // Limpiar la ficha seleccionada
     }
   };
 
-  const handlePermanentDelete = async (fichaId, imageUrl) => {
-    let confirmPermanentDelete = false;
-    if (Platform.OS === 'web') {
-      confirmPermanentDelete = window.confirm("¡ATENCIÓN! ¿Estás seguro de que quieres eliminar esta ficha PERMANENTEMENTE? Esta acción no se puede deshacer.");
-    } else {
-      confirmPermanentDelete = await new Promise((resolve) => {
-        Alert.alert(
-          "Eliminar Permanentemente",
-          "¡ATENCIÓN! ¿Estás seguro de que quieres eliminar esta ficha PERMANENTEMENTE? Esta acción NO se puede deshacer.",
-          [
-            { text: "Cancelar", style: "cancel", onPress: () => resolve(false) },
-            { text: "Eliminar", onPress: () => resolve(true), style: "destructive" }
-          ],
-          { cancelable: true, onDismiss: () => resolve(false) }
-        );
-      });
-    }
-
-    if (!confirmPermanentDelete) {
-      return;
-    }
+  const handleConfirmPermanentDelete = async () => {
+    setShowDeleteModal(false); // Ocultar el modal
+    if (!selectedFicha) return; // Asegurarse de que hay una ficha seleccionada
 
     try {
       // 1. Eliminar la imagen asociada de Storage (si existe)
-      if (imageUrl) {
-        const imagePath = getStoragePathFromUrl(imageUrl);
+      if (selectedFicha.imageUrl) {
+        const imagePath = getStoragePathFromUrl(selectedFicha.imageUrl);
         if (imagePath) {
           const imageRef = ref(storage, imagePath);
           try {
@@ -193,31 +175,40 @@ export default function PapeleraScreen() {
       }
 
       // 2. Eliminar el documento de Firestore
-      const docRef = doc(db, 'fichas', fichaId);
+      const docRef = doc(db, 'fichas', selectedFicha.id);
       await deleteDoc(docRef);
       Alert.alert("Éxito", "Ficha eliminada permanentemente.");
       fetchFichasEliminadas(); // Recargar la lista
     } catch (e) {
       Alert.alert("Error", `No se pudo eliminar la ficha permanentemente: ${e.message}`);
       console.error("Error permanently deleting ficha:", e);
+    } finally {
+      setSelectedFicha(null); // Limpiar la ficha seleccionada
     }
+  };
+
+  // Manejador de cancelación genérico para los modales
+  const handleCancelModal = () => {
+    setShowRestoreModal(false);
+    setShowDeleteModal(false);
+    setSelectedFicha(null);
   };
 
   const renderItem = ({ item }) => {
     // Lógica para formatear la fecha que soporta Timestamp, string y null/undefined
     const deletedDate = item.deletedAt
       ? (typeof item.deletedAt.toDate === 'function' // Si es un Timestamp de Firestore
-         ? item.deletedAt.toDate().toLocaleDateString('es-ES', {
-             year: 'numeric', month: 'long', day: 'numeric',
-             hour: '2-digit', minute: '2-digit'
-           })
-         : (typeof item.deletedAt === 'string' // Si es una cadena de texto (formato antiguo)
-            ? new Date(item.deletedAt).toLocaleDateString('es-ES', {
-                year: 'numeric', month: 'long', day: 'numeric',
-                hour: '2-digit', minute: '2-digit'
-              })
-            : 'N/A (sin fecha de eliminación)' // Para cualquier otro tipo o si no es válido
-           )
+           ? item.deletedAt.toDate().toLocaleDateString('es-ES', {
+               year: 'numeric', month: 'long', day: 'numeric',
+               hour: '2-digit', minute: '2-digit'
+             })
+           : (typeof item.deletedAt === 'string' // Si es una cadena de texto (formato antiguo)
+               ? new Date(item.deletedAt).toLocaleDateString('es-ES', {
+                   year: 'numeric', month: 'long', day: 'numeric',
+                   hour: '2-digit', minute: '2-digit'
+                 })
+               : 'N/A (sin fecha de eliminación)' // Para cualquier otro tipo o si no es válido
+             )
         )
       : 'N/A (sin fecha de eliminación)'; // Si el campo no existe
 
@@ -229,13 +220,13 @@ export default function PapeleraScreen() {
         <View style={styles.cardActions}>
           <TouchableOpacity
             style={styles.actionButtonRestore}
-            onPress={() => handleRestoreFicha(item.id)}
+            onPress={() => promptRestore(item)} // Llama a la función para mostrar el modal de restauración
           >
             <Text style={styles.actionButtonText}>Restaurar</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButtonDelete}
-            onPress={() => handlePermanentDelete(item.id, item.imageUrl)}
+            onPress={() => promptPermanentDelete(item)} // Llama a la función para mostrar el modal de eliminación permanente
           >
             <Text style={styles.actionButtonText}>Eliminar Permanentemente</Text>
           </TouchableOpacity>
@@ -277,6 +268,32 @@ export default function PapeleraScreen() {
         renderItem={renderItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContentContainer}
+      />
+
+      {/* Modal de Confirmación para Restaurar */}
+      <ConfirmationModal
+        visible={showRestoreModal}
+        title="Restaurar Ficha"
+        message="¿Estás seguro de que quieres restaurar esta ficha?"
+        onConfirm={handleConfirmRestore}
+        onCancel={handleCancelModal}
+        // Puedes pasar colores específicos si quieres que el botón "Confirmar" de este modal
+        // sea verde en lugar del rojo por defecto de tu ConfirmationModal.
+        // Tendrías que añadir un prop `confirmButtonColor` y `cancelButtonColor`
+        // a tu componente ConfirmationModal y aplicarlo en sus estilos.
+        confirmButtonColor="#4CAF50" // Verde para restaurar
+        cancelButtonColor="#2196F3" // Azul para cancelar
+      />
+
+      {/* Modal de Confirmación para Eliminar Permanentemente */}
+      <ConfirmationModal
+        visible={showDeleteModal}
+        title="Eliminar Permanentemente"
+        message="¡ATENCIÓN! ¿Estás seguro de que quieres eliminar esta ficha PERMANENTEMENTE? Esta acción NO se puede deshacer."
+        onConfirm={handleConfirmPermanentDelete}
+        onCancel={handleCancelModal}
+        confirmButtonColor="#F44336" // Rojo para eliminar permanentemente
+        cancelButtonColor="#2196F3" // Azul para cancelar
       />
     </View>
   );
