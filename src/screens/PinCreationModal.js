@@ -42,7 +42,7 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
 
     const handleSave = () => {
         if (description.trim() === '') {
-            Alert.alert('Error', 'La descripción no puede estar vacía.'); // Usar Alert nativo
+            Alert.alert('Error', 'La descripción no puede estar vacía.');
             return;
         }
         if (selectedEstado === '') {
@@ -69,11 +69,10 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
             estado: selectedEstado,
             n_trampa: numeroTrampa,
         });
-        // onClose(); // Comentado para que el usuario pueda ver el resultado o decidir qué hacer
+        // onClose(); // Puedes descomentar esto si quieres que el modal se cierre automáticamente al guardar
     };
 
     const handleCreateFicha = () => {
-        // Validación mínima antes de abrir NuevaFicha
         const cleanedNTrampa = nTrampa.trim();
         if (cleanedNTrampa.length === 0 || !/^\d{9}$/.test(cleanedNTrampa)) {
             Alert.alert('Error', 'Para crear una ficha, el "Número de Trampa" debe ser de 9 dígitos numéricos.');
@@ -86,21 +85,12 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
         setShowNuevaFicha(false); // Ocultar el componente NuevaFicha
     };
 
-    // Renderizar NuevaFicha si showNuevaFicha es true
     if (showNuevaFicha) {
-        // Pasamos nTrampa y coords a NuevaFicha para pre-rellenar
         return (
             <NuevaFicha
                 initialNTrampa={parseInt(nTrampa.trim(), 10)}
                 initialCoords={coords}
-                onClose={() => {
-                    handleCloseNuevaFicha();
-                    // Opcional: podrías querer cerrar también PinCreationModal aquí
-                    // onClose(); // Descomenta si deseas que al cerrar NuevaFicha también se cierre PinCreationModal
-                }}
-                // Puedes agregar una prop onFichaSaved si necesitas hacer algo específico
-                // después de que la ficha se guarda desde NuevaFicha.
-                // Por ahora, simplemente cierra NuevaFicha.
+                onClose={handleCloseNuevaFicha}
             />
         );
     }
@@ -117,7 +107,6 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
                     <ScrollView contentContainerStyle={styles.scrollViewContent}>
                         <Text style={styles.modalTitle}>Nueva Trampa</Text>
                         <Text style={styles.modalCoords}>Lat: {coords?.lat.toFixed(6)}, Lng: {coords?.lng.toFixed(6)}</Text>
-
 
                         <View style={styles.inputGroup}>
                             <Text style={styles.label}>Número de Trampa (9 dígitos):</Text>
@@ -164,11 +153,10 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
                                             {selectedEstado === estado && (
                                                 <View style={[
                                                     styles.innerRadioCircle,
-                                                    { backgroundColor: getStateColor(estado) } // Color del estado
+                                                    { backgroundColor: getStateColor(estado) }
                                                 ]} />
                                             )}
                                         </View>
-                                        {/* Pequeño cuadro de color al lado de la etiqueta */}
                                         <View style={[
                                             styles.colorIndicator,
                                             { backgroundColor: getStateColor(estado) }
@@ -194,7 +182,6 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
                             </TouchableOpacity>
                         </View>
 
-                        {/* Botón para crear ficha con emoji */}
                         <TouchableOpacity
                             style={[styles.button, styles.buttonCreateFicha]}
                             onPress={handleCreateFicha}
@@ -221,25 +208,26 @@ const styles = StyleSheet.create({
         backgroundColor: '#f9f9f9',
         borderRadius: 15,
         padding: 25,
-        alignItems: 'stretch', // Permite que los hijos tomen el 100% del ancho
+        alignItems: 'stretch',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 3,
-        width: width * 0.9, // Usa el 90% del ancho de la pantalla
-        maxWidth: 550, // Limita el ancho máximo para pantallas grandes
-        maxHeight: height * 0.9, // Limita la altura máxima para pantallas altas
-        overflow: 'hidden', // Importante para que el ScrollView interno funcione correctamente
+        width: width * 0.9,
+        // Eliminamos maxHeight aquí para que el ScrollView tome el control
+        // y el modal crezca lo necesario hasta que el ScrollView se active.
+        maxHeight: height * 0.9, // Mantener un límite superior para que no ocupe toda la pantalla
+        overflow: 'hidden',
     },
     scrollViewContent: {
-        flexGrow: 1, // Permite que ScrollView se expanda y sea desplazable si el contenido excede el maxHeight
-        // justifyContent: 'center', // Comentado para que el contenido empiece desde arriba del scroll
+        flexGrow: 1, // Permite que el contenido crezca y sea desplazable
+        // justifyContent: 'center', // Descomentado para que el contenido empiece desde arriba del scroll
     },
     modalTitle: {
-        fontSize: 20,
+        fontSize: 22, // Ligeramente más grande para mejor visibilidad
         fontWeight: 'bold',
-        marginBottom: 10, // Reducido un poco para ahorrar espacio
+        marginBottom: 15,
         color: '#333',
         textAlign: 'center',
     },
@@ -261,7 +249,7 @@ const styles = StyleSheet.create({
     textInput: {
         padding: 12,
         borderWidth: 1,
-        borderColor: '#ccc',
+        borderColor: '#ddd', // Borde más suave
         borderRadius: 10,
         fontSize: 16,
         minHeight: 45,
@@ -272,28 +260,28 @@ const styles = StyleSheet.create({
         textAlignVertical: 'top',
     },
     radioGroup: {
-        flexDirection: 'row', // CAMBIO: Ahora los botones de estado se organizan en fila
-        flexWrap: 'wrap',     // CAMBIO: Permitirá que los botones se envuelvan a la siguiente línea
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         marginTop: 10,
-        justifyContent: 'flex-start', // Alinea los botones al inicio de la fila
+        justifyContent: 'flex-start',
     },
     radioButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 10,
-        paddingVertical: 5, // Reducido padding para compactar
-        paddingHorizontal: 5, // Reducido padding para compactar
-        marginRight: 10, // Espacio entre los botones
+        marginBottom: 8, // Reducido para compactar
+        paddingVertical: 4, // Reducido
+        paddingHorizontal: 5,
+        marginRight: 15, // Aumentado ligeramente para mejor espaciado entre opciones
     },
     radioCircle: {
         height: 20,
         width: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#666',
+        borderColor: '#999', // Borde más neutro
         alignItems: 'center',
         justifyContent: 'center',
-        marginRight: 8, // Reducido espacio
+        marginRight: 8,
         backgroundColor: '#fff',
     },
     selectedRadioCircle: {
@@ -305,29 +293,28 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     colorIndicator: {
-        width: 15,
-        height: 15,
-        borderRadius: 3,
+        width: 16, // Ligeramente más grande
+        height: 16, // Ligeramente más grande
+        borderRadius: 4, // Borde más suave
         marginRight: 8,
         borderWidth: 1,
-        borderColor: '#ddd',
+        borderColor: '#ccc', // Borde más suave
     },
     radioLabel: {
-        fontSize: 15, // Ligeramente reducido
+        fontSize: 15,
         color: '#333',
-        // flexShrink: 1, // Permite que el texto se encoja si no hay espacio
     },
     buttonContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-around', // Mejor distribución para 2 botones
+        justifyContent: 'space-around',
         marginTop: 20,
         marginBottom: 10,
-        width: '100%', // Asegura que ocupe todo el ancho
+        width: '100%',
     },
     button: {
         paddingVertical: 12,
         borderRadius: 10,
-        flex: 1,
+        flex: 1, // Permite que los botones compartan el espacio horizontalmente
         alignItems: 'center',
         justifyContent: 'center',
         marginHorizontal: 5,
@@ -345,8 +332,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#4CAF50',
     },
     buttonCreateFicha: {
-        backgroundColor: 'rgba(138, 154, 91, 0.81)',
-        marginTop: 15, // Aumentado el margen superior
+        backgroundColor: 'rgba(138, 154, 91, 0.9)', // Color ligeramente ajustado para más contraste
+        marginTop: 15,
         width: '100%',
         alignSelf: 'center',
     },
@@ -354,6 +341,6 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
-        textAlign: 'center', // Centra el texto dentro del botón
+        textAlign: 'center',
     },
 });
