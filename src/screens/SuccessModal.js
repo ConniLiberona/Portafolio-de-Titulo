@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.5)', // Fondo oscuro semitransparente
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalView: {
     margin: 20,
@@ -51,26 +51,26 @@ const styles = StyleSheet.create({
     width: '90%',
   },
   modalTitle: {
-    fontSize: 22, // Un poco más grande para éxito
+    fontSize: 22,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
-    color: 'rgba(138, 154, 91, 0.81)', // Verde para éxito
+    color: 'rgba(138, 154, 91, 0.81)',
   },
   modalText: {
-    marginBottom: 25, // Más espacio para el botón
+    marginBottom: 25,
     textAlign: "center",
     fontSize: 16,
   },
   button: {
     borderRadius: 10,
-    paddingVertical: 12, // Más padding para que sea fácil de presionar
+    paddingVertical: 12,
     paddingHorizontal: 25,
     elevation: 2,
     minWidth: 120,
   },
   successButton: {
-    backgroundColor: "rgba(138, 154, 91, 0.81)", // Verde para el botón de éxito
+    backgroundColor: "rgba(138, 154, 91, 0.81)",
   },
   textStyle: {
     color: "white",

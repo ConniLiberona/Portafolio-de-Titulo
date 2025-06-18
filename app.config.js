@@ -1,4 +1,3 @@
-
 export default {
   "expo": {
     "name": "MoscasSAG",
@@ -16,7 +15,9 @@ export default {
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+
+      "package": "com.sag.monitoreotrampas" 
     },
     "web": {
       "bundler": "metro",

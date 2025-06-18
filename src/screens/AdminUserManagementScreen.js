@@ -1,4 +1,3 @@
-// src/screens/AdminUserManagementScreen.js
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
@@ -7,7 +6,6 @@ export default function AdminUserManagementScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Gestión de Usuarios (Admin)</Text>
       <Text>Aquí se listarán los usuarios y se podrán asignar roles.</Text>
-      {/* Aquí irá la lógica para listar usuarios, el formulario para asignar roles, etc. */}
     </View>
   );
 }

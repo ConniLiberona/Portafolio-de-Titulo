@@ -8,16 +8,13 @@ import { useNavigation } from '@react-navigation/native';
 import PinCreationModal from './PinCreationModal';
 import ConfirmationModal from './ConfirmationModal';
 import SuccessModal from './SuccessModal';
-import MarkerInfoModal from './MarkerInfoModal'; // Importa el nuevo modal
+import MarkerInfoModal from './MarkerInfoModal';
 
-// Importa Firebase y Firestore
 import { getFirestore, collection, addDoc, getDocs, query, doc, updateDoc, deleteDoc, where } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
 
-// Inicializa Firestore
 const db = getFirestore(appMoscasSAG);
 
-// Corrección para que los iconos de marcador por defecto de Leaflet se muestren correctamente
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
@@ -25,7 +22,6 @@ L.Icon.Default.mergeOptions({
   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
 });
 
-// Estados válidos para el pin (copiados de PinCreationModal para consistencia)
 const validPinStates = [
   'Activa',
   'Próxima a vencer',
@@ -34,19 +30,17 @@ const validPinStates = [
   'Requiere revisión',
 ];
 
-// Función para obtener el color asociado a cada estado (copiada de PinCreationModal)
 const getEstadoColor = (estado) => {
   switch (estado) {
-    case 'Activa': return '#4CAF50'; // Verde
-    case 'Próxima a vencer': return '#FFC107'; // Amarillo
-    case 'Vencida': return '#F44336'; // Rojo
-    case 'Inactiva/Retirada': return '#9E9E9E'; // Gris
-    case 'Requiere revisión': return '#2196F3'; // Azul
-    default: return '#007bff'; // Azul por defecto (si no hay coincidencia)
+    case 'Activa': return '#4CAF50';
+    case 'Próxima a vencer': return '#FFC107';
+    case 'Vencida': return '#F44336';
+    case 'Inactiva/Retirada': return '#9E9E9E';
+    case 'Requiere revisión': return '#2196F3';
+    default: return '#007bff';
   }
 };
 
-// Definición de iconos personalizados para cada estado (usando la función getEstadoColor)
 const createColoredPinIcon = (color) => new L.DivIcon({
   className: 'custom-div-icon',
   html: `<div style="background-color:${color}; width:20px; height:20px; border-radius:50%; border:3px solid white; box-shadow:0 0 5px rgba(0,0,0,0.3);"></div>`,
@@ -64,7 +58,6 @@ const pinIcons = {
   'default': createColoredPinIcon(getEstadoColor('default')),
 };
 
-// Lógica para determinar el estado de la trampa
 const DAYS_ACTIVE = 14;
 const DAYS_NEAR_EXPIRY = 28;
 
@@ -90,7 +83,6 @@ const determinarEstadoTrampa = (fecha_instalacion, plaga_detectada = false, reti
   }
 };
 
-// Componente auxiliar para manejar los clics en el mapa
 function MapClickHandler({ setClickCoords }) {
   const map = useMap();
 
@@ -109,34 +101,29 @@ function MapClickHandler({ setClickCoords }) {
   return null;
 }
 
-// Componente auxiliar para manejar las interacciones del mapa desde el padre (ej. búsqueda)
 function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs, onMarkerClickedFromSearch }) {
   const map = useMap();
 
-  // Efecto para volar a la ubicación objetivo
   useEffect(() => {
     if (targetLocation) {
       map.flyTo(targetLocation, map.getZoom() || 15, {
-        duration: 1.5, // Duración de la animación en segundos
+        duration: 1.5,
       });
     }
   }, [map, targetLocation]);
 
-  // Efecto para abrir el popup de un marcador específico (ahora abre el MarkerInfoModal)
   useEffect(() => {
     if (markerToOpenId && markerRefs.current[markerToOpenId]) {
-      // En lugar de abrir el popup de Leaflet, disparamos la función para abrir el modal
-      const marker = markerRefs.current[markerToOpenId].options.markerData; // Acceder a los datos originales
+      const marker = markerRefs.current[markerToOpenId].options.markerData;
       if (marker) {
         onMarkerClickedFromSearch(marker);
       }
     }
   }, [map, markerToOpenId, markerRefs, onMarkerClickedFromSearch]);
 
-  return null; // Este componente no renderiza nada visualmente
+  return null;
 }
 
-// NUEVO: Icono personalizado para la ubicación del usuario con animación de pulso que se expande
 const userLocationIcon = L.divIcon({
   className: 'user-location-marker-container',
   html: `
@@ -159,7 +146,7 @@ const userLocationIcon = L.divIcon({
         }
       }
       .user-location-marker-dot {
-        background-color: #007bff; /* Azul sólido */
+        background-color: #007bff;
         width: 12px;
         height: 12px;
         border-radius: 50%;
@@ -168,68 +155,58 @@ const userLocationIcon = L.divIcon({
         position: absolute;
         top: 50%;
         left: 50%;
-        transform: translate(-50%, -50%); /* Centrar el punto */
+        transform: translate(-50%, -50%);
         z-index: 2;
       }
       .user-location-marker-pulse {
-        /* No es un color de fondo, es un borde que crece y se desvanece */
-        width: 40px; /* Tamaño máximo del pulso */
+        width: 40px;
         height: 40px;
         border-radius: 50%;
         position: absolute;
         top: 50%;
         left: 50%;
-        /* El color del pulso ahora es el borde */
         border: 4px solid rgba(0, 122, 255, 0.7);
-        animation: pulse-outer 2s infinite ease-out; /* Aplica la animación */
-        box-sizing: border-box; /* Para que el padding/borde no afecte el tamaño total */
+        animation: pulse-outer 2s infinite ease-out;
+        box-sizing: border-box;
         z-index: 1;
       }
     </style>
     <div class="user-location-marker-pulse"></div>
     <div class="user-location-marker-dot"></div>
   `,
-  iconSize: [40, 40], // Tamaño total del icono (para el contenedor), ajusta según el pulso máximo
-  iconAnchor: [20, 20], // Punto de anclaje (centro del icono)
-  popupAnchor: [0, -20] // Ajuste del popup
+  iconSize: [40, 40],
+  iconAnchor: [20, 20],
+  popupAnchor: [0, -20]
 });
 
 
-// Componente principal de la pantalla del mapa
 export default function MapScreenWeb() {
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [markers, setMarkers] = useState([]);
   const [loadingMarkers, setLoadingMarkers] = useState(true);
 
-  // Estados para el modal de creación de pin
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentClickCoords, setCurrentClickCoords] = useState(null);
 
-  // NUEVOS ESTADOS PARA EL MODAL DE INFORMACIÓN DEL MARCADOR
   const [isMarkerInfoModalVisible, setIsMarkerInfoModalVisible] = useState(false);
   const [selectedMarkerData, setSelectedMarkerData] = useState(null);
 
-  // Estados para la funcionalidad de búsqueda
   const [searchText, setSearchText] = useState('');
-  const [targetLocation, setTargetLocation] = useState(null); // Para centrar el mapa
-  const [markerToOpenId, setMarkerToOpenId] = useState(null); // Para abrir el popup del marcador
-  const markerRefs = useRef({}); // Para almacenar referencias a los objetos Leaflet Marker
+  const [targetLocation, setTargetLocation] = useState(null);
+  const [markerToOpenId, setMarkerToOpenId] = useState(null);
+  const markerRefs = useRef({});
 
-  // Estados para el modal de confirmación de eliminación de TRAMPA
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
   const [pinToDeleteId, setPinToDeleteId] = useState(null);
 
-  // <-- NUEVOS ESTADOS PARA LOS MODALES DE ÉXITO Y ERROR GENERAL -->
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(''); // Inicializado correctamente
-  // <-- FIN NUEVOS ESTADOS -->
+  const [errorMessage, setErrorMessage] = useState('');
 
   const navigation = useNavigation();
 
-  // Funciones para manejar los modales de éxito y error
   const openSuccessModal = (message) => {
     setSuccessMessage(message);
     setShowSuccessModal(true);
@@ -251,19 +228,16 @@ export default function MapScreenWeb() {
   };
 
 
-  // Función para abrir el modal al hacer clic en el mapa
   const handleMapClickAndShowModal = (coords) => {
     setCurrentClickCoords(coords);
     setIsModalVisible(true);
   };
 
-  // Función para cerrar el modal de creación de pin
   const handleCloseModal = () => {
     setIsModalVisible(false);
     setCurrentClickCoords(null);
   };
 
-  // Función para guardar el pin, llamada desde el modal
   const handleSavePin = async (pinData) => {
     try {
       const nTrampaToSave = pinData.n_trampa;
@@ -289,17 +263,17 @@ export default function MapScreenWeb() {
         fecha_instalacion: new Date(),
         plaga_detectada: (pinData.estado === 'Requiere revisión'),
         retirada: (pinData.estado === 'Inactiva/Retirada'),
+        estado: pinData.estado,
       }]);
       console.log("Pin añadido al estado local:", { id: docRef.id, ...pinData, n_trampa: nTrampaToSave });
     } catch (error) {
       console.error("Error al guardar la trampa en Firestore: ", error);
       openErrorModal('No se pudo guardar la trampa en Firestore. Revisa tu conexión o permisos.');
     } finally {
-        handleCloseModal(); // Cierra el modal de creación después de guardar
+        handleCloseModal();
     }
   };
 
-  // Callback para actualizar un marcador desde MarkerInfoModal
   const handleUpdateMarker = useCallback((pinId, updates) => {
     setMarkers(prevMarkers =>
       prevMarkers.map(marker => {
@@ -307,7 +281,7 @@ export default function MapScreenWeb() {
           return {
             ...marker,
             ...updates,
-            estado: updates.estado, // Asegura que el estado se actualice
+            estado: updates.estado,
             plaga_detectada: updates.plaga_detectada,
             retirada: updates.retirada
           };
@@ -315,19 +289,16 @@ export default function MapScreenWeb() {
         return marker;
       })
     );
-    // Si el marcador seleccionado es el que se actualizó, actualiza sus datos en el modal
     setSelectedMarkerData(prevData => (prevData && prevData.id === pinId ? { ...prevData, ...updates } : prevData));
   }, []);
 
 
-  // Callback para eliminar un marcador desde MarkerInfoModal
   const handleDeleteMarker = useCallback((pinId) => {
     setMarkers(prevMarkers => prevMarkers.filter(marker => marker.id !== pinId));
-    setIsMarkerInfoModalVisible(false); // Cierra el modal de información si el marcador fue eliminado
+    setIsMarkerInfoModalVisible(false);
     setSelectedMarkerData(null);
   }, []);
 
-  // Función para manejar la búsqueda de pines
   const handleSearchPin = async () => {
     if (!searchText) {
       openErrorModal('Por favor, introduce un número de trampa para buscar.');
@@ -340,7 +311,6 @@ export default function MapScreenWeb() {
 
     if (foundMarker) {
       setTargetLocation([foundMarker.lat, foundMarker.lng]);
-      // Usamos los datos del marcador encontrado para abrir el modal
       setSelectedMarkerData(foundMarker);
       setIsMarkerInfoModalVisible(true);
       setSearchText('');
@@ -352,7 +322,6 @@ export default function MapScreenWeb() {
     }
   };
 
-  // Función para ubicar al usuario (MEJORADA PARA ALTA PRECISIÓN)
   const locateUser = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -361,8 +330,8 @@ export default function MapScreenWeb() {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
           };
-          setLocation(newPos); // Actualiza el estado de la ubicación
-          setTargetLocation([newPos.latitude, newPos.longitude]); // Centra el mapa
+          setLocation(newPos);
+          setTargetLocation([newPos.latitude, newPos.longitude]);
           openSuccessModal("Mapa centrado en tu ubicación actual.");
         },
         (error) => {
@@ -377,19 +346,17 @@ export default function MapScreenWeb() {
           }
           openErrorModal(errorMessage);
         },
-        { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 } // Opciones para alta precisión
+        { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 }
       );
     } else {
       openErrorModal("Tu navegador no soporta la geolocalización.");
     }
   };
 
-  // useEffect para obtener la ubicación del usuario al cargar (ahora usa locateUser)
   useEffect(() => {
-    locateUser(); // Llama a la función de ubicación al montar el componente
-  }, []); // Se ejecuta solo una vez al montar
+    locateUser();
+  }, []);
 
-  // useEffect para cargar los pines existentes desde Firestore al montar el componente
   useEffect(() => {
     const fetchMarkers = async () => {
       setLoadingMarkers(true);
@@ -442,13 +409,12 @@ export default function MapScreenWeb() {
     fetchMarkers();
   }, []);
 
-  // Reset targetLocation y markerToOpenId después de un tiempo para evitar re-triggers
   useEffect(() => {
     if (targetLocation || markerToOpenId) {
       const timer = setTimeout(() => {
         setTargetLocation(null);
         setMarkerToOpenId(null);
-      }, 2000); // Un poco más largo que la duración de la animación flyTo
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [targetLocation, markerToOpenId]);
@@ -480,7 +446,6 @@ export default function MapScreenWeb() {
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Marcador de la ubicación del usuario con el nuevo icono de pulso */}
         <Marker position={[location.latitude, location.longitude]} icon={userLocationIcon}>
           <Popup>
             <View>
@@ -508,35 +473,29 @@ export default function MapScreenWeb() {
             icon={pinIcons[marker.estado] || pinIcons['default']}
             ref={(ref) => { markerRefs.current[marker.id] = ref; }}
             eventHandlers={{
-                click: () => { // Usamos 'click' en lugar de 'popupopen' para activar el modal
+                click: () => {
                     setSelectedMarkerData(marker);
                     setIsMarkerInfoModalVisible(true);
                 },
             }}
-            options={{ markerData: marker }} // Almacena los datos originales para acceso en MapInteractionHandler
+            options={{ markerData: marker }}
           >
-            {/* YA NO SE USA EL POPUP DE LEAFLET AQUÍ, SE USA UN MODAL PERSONALIZADO */}
-            {/* <Popup>
-              ... contenido del popup antiguo ...
-            </Popup> */}
           </Marker>
         ))}
       </MapContainer>
 
-      {/* Botón para ubicar al usuario */}
       <TouchableOpacity style={styles.locateMeButton} onPress={locateUser}>
         <Image
-          source={require('../../assets/my_location_icon.png')} // Asegúrate de que esta ruta sea correcta
+          source={require('../../assets/my_location_icon.png')}
           style={styles.locateMeIcon}
         />
       </TouchableOpacity>
 
-      {/* Search Input y Botón - Ahora posicionado en la parte inferior */}
       <View style={styles.searchContainer}>
         <TextInput
           style={styles.searchInput}
           placeholder="Buscar por N° Trampa"
-          placeholderTextColor="#999" // Un gris suave para diferenciarlo
+          placeholderTextColor="#999"
           value={searchText}
           onChangeText={setSearchText}
           keyboardType="numeric"
@@ -559,7 +518,6 @@ export default function MapScreenWeb() {
         />
       )}
 
-      {/* NUEVO: MODAL DE INFORMACIÓN DEL MARCADOR */}
       {selectedMarkerData && (
         <MarkerInfoModal
           visible={isMarkerInfoModalVisible}
@@ -568,30 +526,19 @@ export default function MapScreenWeb() {
             setSelectedMarkerData(null);
           }}
           markerData={selectedMarkerData}
-          onUpdateMarker={handleUpdateMarker} // Pasa el callback para actualizar el estado de markers
-          onDeleteMarker={handleDeleteMarker} // Pasa el callback para eliminar el marcador
+          onUpdateMarker={handleUpdateMarker}
+          onDeleteMarker={handleDeleteMarker}
           openSuccessModal={openSuccessModal}
           openErrorModal={openErrorModal}
         />
       )}
 
-      {/* RENDERIZADO DEL MODAL DE CONFIRMACIÓN (ahora solo se usa si tenías uno aparte de MarkerInfoModal) */}
-      {/* <ConfirmationModal
-        visible={showConfirmDeleteModal}
-        title="Confirmar Eliminación"
-        message="¿Estás seguro de que quieres eliminar esta trampa? Esta acción no se puede deshacer."
-        onConfirm={confirmDelete}
-        onCancel={cancelDelete}
-      /> */}
-
-      {/* <-- RENDERIZADO DEL NUEVO MODAL DE ÉXITO --> */}
       <SuccessModal
         visible={showSuccessModal}
         message={successMessage}
         onClose={closeSuccessModal}
       />
 
-      {/* <-- RENDERIZADO DE UN POSIBLE MODAL DE ERROR GENERAL (similar a SuccessModal) --> */}
         <SuccessModal
         visible={showErrorModal}
         title="Error"
@@ -638,16 +585,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 20,
   },
-  // --- YA NO NECESITAMOS popupContent AQUÍ, LO MANEJA MarkerInfoModal ---
-  // popupContent: {
-  //   padding: 20,
-  //   width: '90%',
-  //   maxHeight: 'calc(100vh - 200px)',
-  //   overflowY: 'auto',
-  //   alignSelf: 'center',
-  // },
-  // ... (eliminar todos los estilos relacionados con popupTitle, popupText, popupActions, radioGroupPopup, deleteButton, fichasContainer, etc. de MapScreen.web.js)
-
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',

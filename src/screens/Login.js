@@ -1,18 +1,13 @@
-// src/screens/Login.js
-import React, { useState, useContext } from 'react'; // <-- Importa useContext
+import React, { useState, useContext } from 'react';
 import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert, Image, Dimensions } from 'react-native';
 
-// Importaciones de Firebase
 import { getAuth, signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import appMoscasSAG from '../../credenciales';
 
-// Importa tu AuthContext
-import { AuthContext } from '../context/AuthContext'; // <-- Asegúrate de que la ruta sea correcta
+import { AuthContext } from '../context/AuthContext';
 
-// Obtiene la instancia de autenticación de Firebase
 const auth = getAuth(appMoscasSAG);
 
-// Obtener las dimensiones de la pantalla para ajustar el tamaño del logo y márgenes
 const { width, height } = Dimensions.get('window');
 
 export default function Login() {
@@ -22,13 +17,7 @@ export default function Login() {
   const [showNotification, setShowNotification] = useState(false);
   const [notificationType, setNotificationType] = useState('success');
 
-  // Usa el AuthContext
-  const { setUser, setUserClaims } = useContext(AuthContext); // Aunque onAuthStateChanged ya lo actualiza,
-                                                             // si no tienes un listener global, necesitarías esto.
-                                                             // Dado que ya lo tienes en AuthContext,
-                                                             // no es estrictamente necesario aquí, pero lo mantengo
-                                                             // como referencia de cómo se actualizaría si no hubiera
-                                                             // un listener global.
+  const { setUser, setUserClaims } = useContext(AuthContext);
 
   const showUserNotification = (message, type = 'success') => {
     setNotificationMessage(message);
@@ -46,13 +35,9 @@ export default function Login() {
       return;
     }
     try {
-      // signInWithEmailAndPassword ya disparará el onAuthStateChanged en AuthContext
-      // que a su vez obtendrá los claims.
       await signInWithEmailAndPassword(auth, email, password);
       console.log('Usuario ha iniciado sesión');
-      showUserNotification('Inicio de sesión exitoso.', 'success'); // Notificación de éxito
-      // La navegación se maneja automáticamente por Navigation.js (onAuthStateChanged)
-      // No necesitas obtener claims aquí, el AuthContext ya lo hace.
+      showUserNotification('Inicio de sesión exitoso.', 'success');
 
     } catch (error) {
       console.error("Error al iniciar sesión:", error.code, error.message);
@@ -169,7 +154,6 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 28,
-    // fontFamily: 'Montserrat-Bold',
     color: '#333',
     marginBottom: height * 0.03,
     width: '100%',
@@ -185,7 +169,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginBottom: 12,
     fontSize: 18,
-    // fontFamily: 'Montserrat-Regular',
     color: '#333',
     borderColor: '#e0e0e0',
     borderWidth: 1,
@@ -213,7 +196,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 18,
-    // fontFamily: 'Montserrat-Bold',
     fontWeight: 'bold',
     letterSpacing: 0.8,
   },
@@ -224,7 +206,6 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     color: '#607D8B',
     fontSize: 15,
-    // fontFamily: 'Montserrat-Regular',
     textDecorationLine: 'underline',
   },
   notificationBox: {

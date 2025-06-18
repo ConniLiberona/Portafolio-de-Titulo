@@ -1,4 +1,3 @@
-// src/screens/NuevaFicha.js
 import React, { useState, useEffect } from 'react';
 import {
     StyleSheet,
@@ -16,10 +15,9 @@ import {
 import { getFirestore, collection, addDoc, Timestamp } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation } from '@react-navigation/native'; // Mantener esto si `NuevaFicha` también se usa independientemente
+import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 
-// Importaciones condicionales para el DatePicker
 let DatePickerWeb;
 let DateTimePickerNative;
 
@@ -30,11 +28,9 @@ if (Platform.OS === 'web') {
     DateTimePickerNative = require('@react-native-community/datetimepicker').default;
 }
 
-// Inicializar Firestore y Storage usando la instancia de Firebase
 const db = getFirestore(appMoscasSAG);
 const storage = getStorage(appMoscasSAG);
 
-// Añadimos props para recibir datos iniciales y una función para cerrar
 export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
     const initialState = {
         region: '',
@@ -42,7 +38,7 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
         cuadrante: '',
         subcuadrante: '',
         ruta: '',
-        n_trampa: initialNTrampa ? String(initialNTrampa) : '', // Usar prop si existe
+        n_trampa: initialNTrampa ? String(initialNTrampa) : '',
         condicion_fija: false,
         condicion_movil: false,
         condicion_temporal: false,
@@ -50,7 +46,7 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
         fecha: new Date(),
         actividad: '',
         prospector: '',
-        localizacion: initialCoords ? `Lat: ${initialCoords.lat.toFixed(6)}, Lng: ${initialCoords.lng.toFixed(6)}` : '', // Usar coords si existen
+        localizacion: initialCoords ? `Lat: ${initialCoords.lat.toFixed(6)}, Lng: ${initialCoords.lng.toFixed(6)}` : '',
         observaciones: '',
         deleted: false,
         deletedAt: null,
@@ -58,7 +54,7 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
 
     const [state, setState] = useState(initialState);
     const [loading, setLoading] = useState(false);
-    const navigation = useNavigation(); // Esto solo se usará si NuevaFicha es una pantalla de navegación
+    const navigation = useNavigation();
 
     const [image, setImage] = useState(null);
 
@@ -69,7 +65,6 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
         console.log('El estado de la imagen ha cambiado a:', image ? 'Imagen seleccionada' : 'No hay imagen');
     }, [image]);
 
-    // Usar useEffect para actualizar el estado si las props iniciales cambian
     useEffect(() => {
         setState(prevState => ({
             ...prevState,
@@ -184,7 +179,7 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
         } else {
             console.warn("Fecha seleccionada no válida en web:", date);
         }
-        setIsDatePickerWebOpen(false); // Cierra el datepicker al seleccionar una fecha
+        setIsDatePickerWebOpen(false);
     };
 
     const saveFicha = async () => {
@@ -192,7 +187,6 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
         console.log('Estado actual de la ficha antes de validación:', state);
         console.log('Imagen seleccionada antes de validación:', image);
 
-        // Validación de Campos Obligatorios
         const numericFields = ['region', 'cuadrante', 'subcuadrante', 'n_trampa'];
         for (const field of numericFields) {
             if (!state[field].trim() || isNaN(Number(state[field]))) {
@@ -286,15 +280,13 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                 Alert.alert('Éxito', 'Ficha guardada correctamente.');
             }
 
-            setState(initialState); // Resetear estado
+            setState(initialState);
             setImage(null);
             console.log('Formulario y estado de imagen limpiados.');
 
-            // Si se pasa una función onClose, úsala para cerrar la modal/componente
             if (onClose) {
                 onClose();
             } else {
-                // De lo contrario, si no hay onClose, navegar a Home (comportamiento original)
                 navigation.navigate('Home');
                 console.log('Navegando a la pantalla Home.');
             }
@@ -323,7 +315,6 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
 
     return (
         <ScrollView style={styles.container}>
-            {/* Sección 1: Datos de Ubicación */}
             <Text style={styles.sectionTitle}>Datos de Ubicación</Text>
             <View style={styles.row}>
                 <View style={styles.item}>
@@ -395,8 +386,8 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                         placeholder="Ingrese N° Trampa"
                         placeholderTextColor="#888"
                         keyboardType="numeric"
-                        maxLength={9} // Asegúrate de que esta validación también esté aquí
-                        editable={!initialNTrampa} // Si viene de PinCreationModal, no debería ser editable
+                        maxLength={9}
+                        editable={!initialNTrampa}
                     />
                 </View>
                 <View style={{ width: '48%' }} />
@@ -448,7 +439,6 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                 </TouchableOpacity>
             </View>
 
-            {/* Sección 2: Datos de Actividad */}
             <Text style={styles.sectionTitle}>Datos de Actividad</Text>
             <View style={styles.row}>
                 <View style={[styles.item, Platform.OS === 'web' && styles.datePickerContainerWeb, isDatePickerWebOpen && Platform.OS === 'web' && styles.datePickerOpenMargin]}>
@@ -541,7 +531,7 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                         value={state.localizacion}
                         placeholder="Ingrese Localización"
                         placeholderTextColor="#888"
-                        editable={!initialCoords} // Si viene de PinCreationModal, no debería ser editable
+                        editable={!initialCoords}
                     />
                 </View>
             </View>
@@ -559,7 +549,6 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                 />
             </View>
 
-            {/* Sección de Selección de Imagen */}
             <Text style={styles.sectionTitle}>
                 Imagen de la Ficha{' '}
                 <Text style={styles.optionalText}>(Opcional)</Text>
@@ -575,12 +564,11 @@ export default function NuevaFicha({ initialNTrampa, initialCoords, onClose }) {
                     </View>
                 )}
             </View>
-            {/* Fin Sección de Selección de Imagen */}
 
             <TouchableOpacity style={styles.button} onPress={saveFicha} disabled={loading}>
                 <Text style={styles.buttonText}>{loading ? 'Guardando...' : 'Guardar Ficha'}</Text>
             </TouchableOpacity>
-            {onClose && ( // Botón para cerrar si se le pasa la prop onClose
+            {onClose && (
                 <TouchableOpacity style={[styles.button, styles.buttonCloseFicha]} onPress={onClose} disabled={loading}>
                     <Text style={styles.buttonText}>Cerrar Formulario</Text>
                 </TouchableOpacity>
@@ -740,8 +728,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
     },
-    buttonCloseFicha: { // Estilo para el nuevo botón de cerrar en NuevaFicha
-        backgroundColor: '#6c757d', // Un color gris para "cerrar"
+    buttonCloseFicha: {
+        backgroundColor: '#6c757d',
         marginTop: 10,
     },
     buttonText: {

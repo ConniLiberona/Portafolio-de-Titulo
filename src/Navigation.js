@@ -1,4 +1,3 @@
-// src/Navigation.js
 import 'react-native-gesture-handler';
 import React, { useState, useEffect, useCallback, useContext } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -7,14 +6,11 @@ import { Platform, ActivityIndicator, View, StyleSheet, Text, SafeAreaView } fro
 import * as SplashScreen from 'expo-splash-screen';
 import { useFonts } from 'expo-font';
 
-// Asegúrate de que esta es la ÚNICA línea para importar appMoscasSAG
 import appMoscasSAG from '../credenciales';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 
-// Importa tu AuthContext
 import { AuthContext } from './context/AuthContext';
 
-// Importaciones de Pantallas
 import Login from './screens/Login';
 import Home from './screens/Home';
 import NuevaFicha from './screens/NuevaFicha';
@@ -24,12 +20,7 @@ import MapScreenNative from './screens/MapScreen';
 import MapScreenWeb from './screens/MapScreen.web';
 import EditarFicha from './screens/EditarFicha';
 import PapeleraScreen from './screens/PapeleraScreen';
-// --- CORRECCIÓN AQUÍ: Importa el componente GestionUsuarios correctamente ---
-import GestionUsuarios from './screens/GestionUsuarios'; // ¡Asumo que este es el nombre de tu archivo y el componente exportado!
-// Si tu archivo se llama AdminUserManagementScreen.js y el componente es AdminUserManagementScreen,
-// entonces déjalo como estaba, pero asegúrate de que el 'name' de la ruta coincida con el navigation.navigate
-// Si el archivo es GestionUsuarios.js y el componente es GestionUsuarios, entonces esta es la línea correcta.
-// --- FIN NUEVOS COMPONENTES ---
+import GestionUsuarios from './screens/GestionUsuarios';
 
 const Stack = createStackNavigator();
 const auth = getAuth(appMoscasSAG);
@@ -99,19 +90,13 @@ export default function Navigation() {
                             <Stack.Screen name="EditarFicha" component={EditarFicha} options={{ title: "EDITAR FICHA" }} />
                             <Stack.Screen name="Papelera" component={PapeleraScreen} options={{ title: "PAPELERA" }} />
 
-                            {/* --- RUTAS BASADAS EN ROLES --- */}
-                            {/* Si UserProfileScreen es un componente real que quieres usar: */}
-                            {/* <Stack.Screen name="UserProfile" component={UserProfileScreen} options={{ title: "MI PERFIL" }} /> */}
-
-                            {/* RUTA PROTEGIDA PARA ADMINISTRADORES - AHORA COINCIDE CON EL NOMBRE DEL BOTÓN */}
-                            {userClaims?.admin && ( // <-- Muestra esta pantalla SOLO si userClaims.admin es true
+                            {userClaims?.admin && (
                                 <Stack.Screen
-                                    name="GestionUsuarios" // ¡Este nombre DEBE coincidir con el `navigation.navigate('GestionUsuarios')` en Home.js!
-                                    component={GestionUsuarios} // ¡Aquí usamos el componente GestionUsuarios importado!
+                                    name="GestionUsuarios"
+                                    component={GestionUsuarios}
                                     options={{ title: "GESTIÓN DE USUARIOS" }}
                                 />
                             )}
-                            {/* --- FIN NUEVAS RUTAS --- */}
                         </>
                     ) : ( // Si no hay usuario (deslogeado), muestra la pantalla de Login
                         <Stack.Screen

@@ -1,11 +1,11 @@
 import 'react-native-gesture-handler';
-import React from 'react'; // Asegúrate de importar React
+import React from 'react';
 import Navigation from './src/Navigation';
-import { AuthProvider } from './src/context/AuthContext'; // <--- Importa AuthProvider
+import { AuthProvider } from './src/context/AuthContext';
 
 export default function App() {
   return (
-    <AuthProvider> {/* Envuelve tu componente principal con AuthProvider */}
+    <AuthProvider>
       <Navigation />
     </AuthProvider>
   );

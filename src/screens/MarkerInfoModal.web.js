@@ -1,16 +1,13 @@
-// src/screens/MarkerInfoModal.js (o .web.js)
-
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, Dimensions, ScrollView, Alert } from 'react-native';
 import { getFirestore, doc, updateDoc, deleteDoc, collection, query, getDocs, where } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
-import { useNavigation } from '@react-navigation/native'; // Para la navegación a DetalleFicha
+import { useNavigation } from '@react-navigation/native';
 
 const { width, height } = Dimensions.get('window');
 
-const db = getFirestore(appMoscasSAG); // Inicializa Firestore
+const db = getFirestore(appMoscasSAG);
 
-// Estados válidos para el pin (duplicados aquí para que el modal sea autocontenido, pero idealmente se importaría de un archivo común)
 const validPinStates = [
   'Activa',
   'Próxima a vencer',
@@ -19,15 +16,14 @@ const validPinStates = [
   'Requiere revisión',
 ];
 
-// Función para obtener el color asociado a cada estado
 const getEstadoColor = (estado) => {
   switch (estado) {
-    case 'Activa': return '#4CAF50'; // Verde
-    case 'Próxima a vencer': return '#FFC107'; // Amarillo
-    case 'Vencida': return '#F44336'; // Rojo
-    case 'Inactiva/Retirada': return '#9E9E9E'; // Gris
-    case 'Requiere revisión': return '#2196F3'; // Azul
-    default: return '#007bff'; // Azul por defecto (si no hay coincidencia)
+    case 'Activa': return '#4CAF50';
+    case 'Próxima a vencer': return '#FFC107';
+    case 'Vencida': return '#F44336';
+    case 'Inactiva/Retirada': return '#9E9E9E';
+    case 'Requiere revisión': return '#2196F3';
+    default: return '#007bff';
   }
 };
 
@@ -42,11 +38,10 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
       setCurrentMarkerData(markerData);
       fetchFichasForTrampa(markerData.n_trampa);
     } else if (!visible) {
-        setAssociatedFichas([]); // Limpiar fichas al cerrar
+        setAssociatedFichas([]);
     }
   }, [visible, markerData]);
 
-  // Función para cargar fichas relacionadas con un n_trampa
   const fetchFichasForTrampa = async (n_trampa) => {
     setLoadingFichas(true);
     try {
@@ -71,13 +66,11 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
     }
   };
 
-  // Función para ir a la pantalla de detalle de ficha
   const handleGoToFichaDetail = (fichaId) => {
     console.log("Navegando a detalles de ficha:", fichaId);
     navigation.navigate('DetalleFicha', { fichaId: fichaId });
   };
 
-  // Manejar el cambio de estado del pin
   const handleChangePinState = async (pinId, newEstado) => {
     try {
       const pinRef = doc(db, 'pins', pinId);
@@ -98,14 +91,13 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
       await updateDoc(pinRef, updates);
       setCurrentMarkerData(prevData => ({ ...prevData, ...updates, estado: newEstado }));
       openSuccessModal(`Estado de la trampa actualizado a: ${newEstado}`);
-      onUpdateMarker(pinId, updates); // Notifica al MapScreen para actualizar su estado de markers
+      onUpdateMarker(pinId, updates);
     } catch (error) {
       console.error("Error al actualizar el estado de la trampa: ", error);
       openErrorModal('No se pudo actualizar el estado de la trampa.');
     }
   };
 
-  // Manejar eliminación del pin
   const handleDelete = () => {
     Alert.alert(
       "Confirmar Eliminación",
@@ -118,8 +110,8 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
             try {
               await deleteDoc(doc(db, "pins", currentMarkerData.id));
               openSuccessModal("Trampa eliminada correctamente.");
-              onDeleteMarker(currentMarkerData.id); // Notifica al MapScreen
-              onClose(); // Cerrar el modal después de eliminar
+              onDeleteMarker(currentMarkerData.id);
+              onClose();
             } catch (error) {
               console.error("Error al eliminar la trampa: ", error);
               openErrorModal("No se pudo eliminar la trampa.");
@@ -133,7 +125,7 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
   };
 
   if (!markerData) {
-    return null; // No renderizar si no hay datos de marcador
+    return null;
   }
 
   return (
@@ -236,26 +228,26 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)', // Fondo semitransparente oscuro
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
   },
   modalView: {
     margin: 20,
     backgroundColor: '#f9f9f9',
     borderRadius: 15,
     padding: 25,
-    alignItems: 'stretch', // Para que el contenido interno se estire
+    alignItems: 'stretch',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 3,
-    width: width * 0.9, // 90% del ancho de la pantalla
-    maxHeight: height * 0.8, // 80% de la altura de la pantalla
-    overflow: 'hidden', // Asegura que el ScrollView maneje el desbordamiento
-    position: 'relative', // Para posicionar el botón de cerrar
+    width: width * 0.9,
+    maxHeight: height * 0.8,
+    overflow: 'hidden',
+    position: 'relative',
   },
   scrollViewContent: {
-    flexGrow: 1, // Permite que el ScrollView ocupe todo el espacio disponible
+    flexGrow: 1,
   },
   modalTitle: {
     fontSize: 22,
@@ -293,7 +285,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 4,
     paddingHorizontal: 5,
-    width: '48%', // Dos opciones por fila
+    width: '48%',
   },
   radioCircle: {
     height: 20,

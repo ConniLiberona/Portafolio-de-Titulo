@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Dimensions, ScrollView, Alert } from 'react-native';
-import NuevaFicha from './NuevaFicha'; // Importa el componente NuevaFicha
+import NuevaFicha from './NuevaFicha';
 
 const { width, height } = Dimensions.get('window');
 
-// Estados válidos para el pin
 const validPinStates = [
     'Activa',
     'Próxima a vencer',
@@ -13,30 +12,29 @@ const validPinStates = [
     'Requiere revisión',
 ];
 
-// Función para obtener el color asociado a cada estado
 const getStateColor = (estado) => {
     switch (estado) {
-        case 'Activa': return '#4CAF50'; // Verde
-        case 'Próxima a vencer': return '#FFC107'; // Amarillo
-        case 'Vencida': return '#F44336'; // Rojo
-        case 'Inactiva/Retirada': return '#9E9E9E'; // Gris
-        case 'Requiere revisión': return '#2196F3'; // Azul
-        default: return '#007bff'; // Azul por defecto (si no hay coincidencia)
+        case 'Activa': return '#4CAF50';
+        case 'Próxima a vencer': return '#FFC107';
+        case 'Vencida': return '#F44336';
+        case 'Inactiva/Retirada': return '#9E9E9E';
+        case 'Requiere revisión': return '#2196F3';
+        default: return '#007bff';
     }
 };
 
 export default function PinCreationModal({ visible, onClose, onSave, coords }) {
     const [description, setDescription] = useState('');
     const [selectedEstado, setSelectedEstado] = useState(validPinStates?.[0] || '');
-    const [nTrampa, setNTrampa] = useState(''); // Estado para el número de trampa
-    const [showNuevaFicha, setShowNuevaFicha] = useState(false); // Nuevo estado para controlar la visibilidad de NuevaFicha
+    const [nTrampa, setNTrampa] = useState('');
+    const [showNuevaFicha, setShowNuevaFicha] = useState(false);
 
     useEffect(() => {
         if (visible) {
             setDescription('');
             setSelectedEstado(validPinStates?.[0] || '');
-            setNTrampa(''); // Limpiar el campo del número de trampa al abrir
-            setShowNuevaFicha(false); // Asegurarse de que NuevaFicha esté oculta al abrir la modal de pin
+            setNTrampa('');
+            setShowNuevaFicha(false);
         }
     }, [visible, validPinStates]);
 
@@ -54,7 +52,6 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
             Alert.alert('Error', 'El número de trampa no puede estar vacío.');
             return;
         }
-        // Valida que sean exactamente 9 dígitos numéricos
         if (!/^\d{9}$/.test(cleanedNTrampa)) {
             Alert.alert('Error', 'El número de trampa debe ser de 9 dígitos numéricos.');
             return;
@@ -69,7 +66,7 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
             estado: selectedEstado,
             n_trampa: numeroTrampa,
         });
-        // onClose(); // Puedes descomentar esto si quieres que el modal se cierre automáticamente al guardar
+        // onClose();
     };
 
     const handleCreateFicha = () => {
@@ -78,11 +75,11 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
             Alert.alert('Error', 'Para crear una ficha, el "Número de Trampa" debe ser de 9 dígitos numéricos.');
             return;
         }
-        setShowNuevaFicha(true); // Mostrar el componente NuevaFicha
+        setShowNuevaFicha(true);
     };
 
     const handleCloseNuevaFicha = () => {
-        setShowNuevaFicha(false); // Ocultar el componente NuevaFicha
+        setShowNuevaFicha(false);
     };
 
     if (showNuevaFicha) {
@@ -115,7 +112,7 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
                                 placeholder="Ej: 123456789"
                                 value={nTrampa}
                                 onChangeText={(text) => {
-                                    const filteredText = text.replace(/[^0-9]/g, ''); // Solo números
+                                    const filteredText = text.replace(/[^0-9]/g, '');
                                     if (filteredText.length <= 9) {
                                         setNTrampa(filteredText);
                                     }
@@ -215,17 +212,14 @@ const styles = StyleSheet.create({
         shadowRadius: 8,
         elevation: 3,
         width: width * 0.9,
-        // Eliminamos maxHeight aquí para que el ScrollView tome el control
-        // y el modal crezca lo necesario hasta que el ScrollView se active.
-        maxHeight: height * 0.9, // Mantener un límite superior para que no ocupe toda la pantalla
+        maxHeight: height * 0.9,
         overflow: 'hidden',
     },
     scrollViewContent: {
-        flexGrow: 1, // Permite que el contenido crezca y sea desplazable
-        // justifyContent: 'center', // Descomentado para que el contenido empiece desde arriba del scroll
+        flexGrow: 1,
     },
     modalTitle: {
-        fontSize: 22, // Ligeramente más grande para mejor visibilidad
+        fontSize: 22,
         fontWeight: 'bold',
         marginBottom: 15,
         color: '#333',
@@ -249,7 +243,7 @@ const styles = StyleSheet.create({
     textInput: {
         padding: 12,
         borderWidth: 1,
-        borderColor: '#ddd', // Borde más suave
+        borderColor: '#ddd',
         borderRadius: 10,
         fontSize: 16,
         minHeight: 45,
@@ -268,17 +262,17 @@ const styles = StyleSheet.create({
     radioButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 8, // Reducido para compactar
-        paddingVertical: 4, // Reducido
+        marginBottom: 8,
+        paddingVertical: 4,
         paddingHorizontal: 5,
-        marginRight: 15, // Aumentado ligeramente para mejor espaciado entre opciones
+        marginRight: 15,
     },
     radioCircle: {
         height: 20,
         width: 20,
         borderRadius: 10,
         borderWidth: 2,
-        borderColor: '#999', // Borde más neutro
+        borderColor: '#999',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 8,
@@ -293,12 +287,12 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     colorIndicator: {
-        width: 16, // Ligeramente más grande
-        height: 16, // Ligeramente más grande
-        borderRadius: 4, // Borde más suave
+        width: 16,
+        height: 16,
+        borderRadius: 4,
         marginRight: 8,
         borderWidth: 1,
-        borderColor: '#ccc', // Borde más suave
+        borderColor: '#ccc',
     },
     radioLabel: {
         fontSize: 15,
@@ -314,7 +308,7 @@ const styles = StyleSheet.create({
     button: {
         paddingVertical: 12,
         borderRadius: 10,
-        flex: 1, // Permite que los botones compartan el espacio horizontalmente
+        flex: 1,
         alignItems: 'center',
         justifyContent: 'center',
         marginHorizontal: 5,
@@ -332,7 +326,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#4CAF50',
     },
     buttonCreateFicha: {
-        backgroundColor: 'rgba(138, 154, 91, 0.9)', // Color ligeramente ajustado para más contraste
+        backgroundColor: 'rgba(138, 154, 91, 0.9)',
         marginTop: 15,
         width: '100%',
         alignSelf: 'center',

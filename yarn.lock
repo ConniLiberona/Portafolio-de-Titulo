@@ -3878,6 +3878,11 @@ expo-linking@*, expo-linking@~7.0.5:
     expo-constants "~17.0.5"
     invariant "^2.2.4"
 
+expo-location@^18.1.5:
+  version "18.1.5"
+  resolved "https://registry.npmjs.org/expo-location/-/expo-location-18.1.5.tgz"
+  integrity sha512-/ugxS4Ort9DbKD0Do6xn4TjeHaA/by5vv0p0PrY5Zbcez1S0AfrQn/4JG/8PLT2imngMwZU9TDKrgxqJQ4RuPQ==
+
 expo-modules-autolinking@2.0.8:
   version "2.0.8"
   resolved "https://registry.npmjs.org/expo-modules-autolinking/-/expo-modules-autolinking-2.0.8.tgz"
@@ -6183,7 +6188,7 @@ react-native-is-edge-to-edge@^1.1.6:
   resolved "https://registry.npmjs.org/react-native-is-edge-to-edge/-/react-native-is-edge-to-edge-1.1.7.tgz"
   integrity sha512-EH6i7E8epJGIcu7KpfXYXiV2JFIYITtq+rVS8uEb+92naMRBdxhTuS8Wn2Q7j9sqyO0B+Xbaaf9VdipIAmGW4w==
 
-react-native-maps@1.18.0:
+react-native-maps@^1.18.0:
   version "1.18.0"
   resolved "https://registry.npmjs.org/react-native-maps/-/react-native-maps-1.18.0.tgz"
   integrity sha512-S17nYUqeMptgIPaAZuVRo+eRelPreBBYQWw6jsxU7qQ12p+THSfFaqabcNn7fBmsXhT3T27iIl8ek8v1H8BaGw==

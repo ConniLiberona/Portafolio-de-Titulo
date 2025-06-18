@@ -4,19 +4,13 @@ import { getFirestore, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/
 import appMoscasSAG from '../../credenciales';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
-// Importaciones para PDF
 import pdfMake from 'pdfmake/build/pdfmake';
 import vfsFonts from 'pdfmake/build/vfs_fonts';
 pdfMake.vfs = vfsFonts.vfs;
 
-// Importa tus componentes de modal personalizados
-import ConfirmationModal from './ConfirmationModal'; // Ajusta la ruta si es necesario
-import InfoModal from './InfoModal'; // Ajusta la ruta si es necesario
+import ConfirmationModal from './ConfirmationModal';
+import InfoModal from './InfoModal';
 
-// Para React Native (móvil), asegúrate de que estas líneas estén descomentadas
-// Si no usas Expo, puede que necesites otras librerías para sistema de archivos y compartir.
-// Asegúrate de tener 'expo-file-system' y 'expo-sharing' instalados si estás en un proyecto Expo.
-// Si estás en web, estas importaciones no se usarán.
 let FileSystem;
 let Sharing;
 if (Platform.OS !== 'web') {
@@ -31,7 +25,6 @@ if (Platform.OS !== 'web') {
 
 const db = getFirestore(appMoscasSAG);
 
-// Función auxiliar para convertir URL de imagen a Base64
 const getImageBase64 = async (url) => {
     try {
         const response = await fetch(url);
@@ -47,7 +40,7 @@ const getImageBase64 = async (url) => {
         });
     } catch (error) {
         console.error('Error al convertir imagen a Base64:', error);
-        return null; // Retorna null si hay un error
+        return null;
     }
 };
 
@@ -60,7 +53,6 @@ export default function DetalleFicha({ route }) {
     const [error, setError] = useState(null);
     const navigation = useNavigation();
 
-    // Estados para los modales
     const [showDeleteConfirmationModal, setShowDeleteConfirmationModal] = useState(false);
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [infoModalMessage, setInfoModalMessage] = useState('');
@@ -69,7 +61,6 @@ export default function DetalleFicha({ route }) {
     const [showPdfLoadingModal, setShowPdfLoadingModal] = useState(false);
 
 
-    // Función para mostrar el modal de información
     const showMessageModal = (title, message, isError = false) => {
       setInfoModalTitle(title);
       setInfoModalMessage(message);
@@ -77,7 +68,6 @@ export default function DetalleFicha({ route }) {
       setShowInfoModal(true);
     };
 
-    // Función para ocultar el modal de información
     const hideMessageModal = () => {
       setShowInfoModal(false);
       setInfoModalMessage('');
@@ -85,7 +75,6 @@ export default function DetalleFicha({ route }) {
       setIsInfoModalError(false);
     };
 
-    // Función para cargar los datos de la ficha desde Firestore
     const fetchFicha = async () => {
         setLoading(true);
         setError(null);
@@ -109,24 +98,20 @@ export default function DetalleFicha({ route }) {
         }
     };
 
-    // Usar useFocusEffect para volver a cargar los datos cada vez que la pantalla entre en foco
     useFocusEffect(
       useCallback(() => {
         fetchFicha();
         return () => {
-          // Limpieza opcional
         };
       }, [fichaId])
     );
 
-    // Maneja el movimiento de una ficha a la papelera (primero muestra el modal de confirmación)
     const handleDeleteFicha = () => {
         setShowDeleteConfirmationModal(true);
     };
 
-    // Lógica de eliminación que se ejecuta DESPUÉS de la confirmación del modal
     const confirmDeleteFicha = async () => {
-        setShowDeleteConfirmationModal(false); // Ocultar el modal de confirmación
+        setShowDeleteConfirmationModal(false);
         try {
             console.log('Intentando mover a papelera ficha con ID:', fichaId);
             const fichaRef = doc(db, 'fichas', fichaId);
@@ -135,19 +120,17 @@ export default function DetalleFicha({ route }) {
                 deletedAt: serverTimestamp()
             });
             showMessageModal("Éxito", "Ficha movida a la papelera correctamente.", false);
-            navigation.goBack(); // Volver a la pantalla anterior después de la acción
+            navigation.goBack();
         } catch (e) {
             showMessageModal("Error", `No se pudo mover la ficha a la papelera: ${e.message}`, true);
             console.error("Error al mover ficha a papelera:", e);
         }
     };
 
-    // Maneja la navegación a la pantalla de modificación
     const handleModifyFicha = () => {
         navigation.navigate('EditarFicha', { fichaId: fichaId, currentFichaData: ficha });
     };
 
-    // Función auxiliar para formatear los valores de visualización
     const formatValue = (key, value) => {
         if (value === null || typeof value === 'undefined' || value === '' || value === false) {
             return 'N/A';
@@ -173,14 +156,13 @@ export default function DetalleFicha({ route }) {
         return value.toString();
     };
 
-    // Maneja la exportación a PDF
     const handleExportPdf = async () => {
         if (!ficha) {
             showMessageModal('Error', 'No hay datos de ficha para exportar.', true);
             return;
         }
 
-        setShowPdfLoadingModal(true); // Mostrar modal de carga
+        setShowPdfLoadingModal(true);
         let imageData = null;
         if (ficha.imageUrl) {
             imageData = await getImageBase64(ficha.imageUrl);
@@ -246,15 +228,14 @@ export default function DetalleFicha({ route }) {
                     },
                     layout: 'noBorders'
                 },
-                // Agrega la imagen si existe y se pudo convertir
                 imageData ? {
                     text: 'Imagen de la Ficha:',
                     style: 'label',
                     margin: [0, 10, 0, 5]
                 } : null,
                 imageData ? {
-                    image: imageData, // Usa los datos Base64 de la imagen
-                    width: 250, // Ajusta el ancho de la imagen en el PDF
+                    image: imageData,
+                    width: 250,
                     alignment: 'center',
                     margin: [0, 5, 0, 15]
                 } : null,
@@ -267,7 +248,7 @@ export default function DetalleFicha({ route }) {
                     style: 'footer',
                     margin: [0, 20, 0, 0]
                 }
-            ].filter(Boolean), // Filtra los elementos nulos (como el de la imagen si no existe)
+            ].filter(Boolean),
             styles: {
                 header: {
                     fontSize: 24,
@@ -311,11 +292,6 @@ export default function DetalleFicha({ route }) {
                 }
             },
             defaultStyle: {
-                // Si la fuente 'Roboto' no está cargada globalmente en pdfMake,
-                // es mejor quitar esta línea para que use las fuentes por defecto de pdfMake,
-                // o bien, cargar 'Roboto' explícitamente en vfsFonts (más complejo para web).
-                // Por ahora, la dejaremos comentada si no has configurado una fuente Roboto personalizada.
-                // font: 'Roboto'
             }
         };
 
@@ -324,26 +300,25 @@ export default function DetalleFicha({ route }) {
                 pdfMake.createPdf(docDefinition).download(`Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`);
                 showMessageModal('Éxito', 'PDF generado y descargado.');
             } else {
-                // Esto es para React Native (móvil)
-                if (FileSystem && Sharing) { // Verificar si los módulos de Expo están disponibles
-                  const pdfDocGenerator = pdfMake.createPdf(docDefinition);
-                  pdfDocGenerator.getBase64(async (data) => {
-                      const filename = `Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`;
-                      const pathToSave = `${FileSystem.documentDirectory}${filename}`;
-                      await FileSystem.writeAsStringAsync(pathToSave, data, { encoding: FileSystem.EncodingType.Base64 });
-                      await Sharing.shareAsync(pathToSave, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
-                      showMessageModal('Éxito', 'PDF generado y compartido.');
-                  });
+                if (FileSystem && Sharing) {
+                    const pdfDocGenerator = pdfMake.createPdf(docDefinition);
+                    pdfDocGenerator.getBase64(async (data) => {
+                        const filename = `Ficha_Trampa_${ficha.n_trampa || fichaId}.pdf`;
+                        const pathToSave = `${FileSystem.documentDirectory}${filename}`;
+                        await FileSystem.writeAsStringAsync(pathToSave, data, { encoding: FileSystem.EncodingType.Base64 });
+                        await Sharing.shareAsync(pathToSave, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+                        showMessageModal('Éxito', 'PDF generado y compartido.');
+                    });
                 } else {
-                  showMessageModal('Error', 'Los módulos de Expo FileSystem y Sharing no están disponibles. No se puede compartir el PDF en móvil.', true);
-                  console.error('Módulos de Expo FileSystem o Sharing no disponibles.');
+                    showMessageModal('Error', 'Los módulos de Expo FileSystem y Sharing no están disponibles. No se puede compartir el PDF en móvil.', true);
+                    console.error('Módulos de Expo FileSystem o Sharing no disponibles.');
                 }
             }
         } catch (pdfError) {
             showMessageModal('Error', `Error al generar el PDF: ${pdfError.message || 'Error desconocido'}`, true);
             console.error('Error generando PDF:', pdfError);
         } finally {
-            setShowPdfLoadingModal(false); // Ocultar modal de carga
+            setShowPdfLoadingModal(false);
         }
     };
 
@@ -455,7 +430,7 @@ export default function DetalleFicha({ route }) {
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[styles.button, styles.deleteButton]}
-                    onPress={handleDeleteFicha} // Ahora llama a la función que muestra el modal de confirmación
+                    onPress={handleDeleteFicha}
                     activeOpacity={0.7}
                 >
                     <Text style={styles.buttonText}>Mover a Papelera</Text>
@@ -470,18 +445,16 @@ export default function DetalleFicha({ route }) {
                 <Text style={styles.buttonText}>Exportar a PDF 📄</Text>
             </TouchableOpacity>
 
-            {/* Modal de Confirmación para Mover a Papelera */}
             <ConfirmationModal
                 visible={showDeleteConfirmationModal}
                 title="Mover a Papelera"
                 message="¿Estás seguro de que quieres mover esta ficha a la papelera?"
-                onConfirm={confirmDeleteFicha} // Función que ejecuta la lógica real
-                onCancel={() => setShowDeleteConfirmationModal(false)} // Simplemente oculta el modal
-                confirmButtonColor="#D32F2F" // Rojo para confirmar eliminación
-                cancelButtonColor="#2196F3" // Azul para cancelar
+                onConfirm={confirmDeleteFicha}
+                onCancel={() => setShowDeleteConfirmationModal(false)}
+                confirmButtonColor="#D32F2F"
+                cancelButtonColor="#2196F3"
             />
 
-            {/* Modal de Información (para éxito/error) */}
             <InfoModal
               visible={showInfoModal}
               title={infoModalTitle}
@@ -490,12 +463,11 @@ export default function DetalleFicha({ route }) {
               onClose={hideMessageModal}
             />
 
-            {/* Modal de carga para PDF (opcional, pero útil para imágenes grandes) */}
             <InfoModal
                 visible={showPdfLoadingModal}
                 title="Generando PDF"
                 message="Cargando imagen y generando PDF, por favor espere..."
-                onClose={() => setShowPdfLoadingModal(false)} // Permite cerrar si el usuario lo desea
+                onClose={() => setShowPdfLoadingModal(false)}
             />
         </ScrollView>
     );

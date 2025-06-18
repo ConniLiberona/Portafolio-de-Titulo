@@ -1,4 +1,3 @@
-// src/screens/UserProfileScreen.js
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 
@@ -7,7 +6,6 @@ export default function UserProfileScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>Mi Perfil</Text>
       <Text>Aquí se mostrará la información del usuario y sus roles.</Text>
-      {/* Aquí irá la lógica para mostrar el email, los claims, etc. */}
     </View>
   );
 }

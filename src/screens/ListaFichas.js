@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
-import { getFirestore, collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore'; // Importa 'where'
+import { getFirestore, collection, getDocs, doc, query, orderBy, where } from 'firebase/firestore';
 import appMoscasSAG from '../../credenciales';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
@@ -13,22 +13,20 @@ export default function ListaFichas() {
   const [error, setError] = useState(null);
   const navigation = useNavigation();
 
-  // Función para cargar las fichas de Firestore
   const fetchFichas = async () => {
     setLoading(true);
     setError(null);
     try {
       const fichasCollection = collection(db, 'fichas');
-      // Consulta: Ordena por n_trampa ascendente y EXCLUYE las fichas marcadas como eliminadas
       const q = query(
         fichasCollection,
-        where('deleted', '==', false), // <--- CAMBIO CLAVE AQUÍ: Solo fichas no eliminadas
+        where('deleted', '==', false),
         orderBy('n_trampa', 'asc')
       );
       const fichasSnapshot = await getDocs(q);
       const fichasList = fichasSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setFichas(fichasList);
-      console.log("Fichas activas cargadas:", fichasList.length); // Para depuración
+      console.log("Fichas activas cargadas:", fichasList.length);
     } catch (e) {
       setError('Error al cargar las fichas.');
       console.error("Error fetching documents: ", e);
@@ -37,17 +35,14 @@ export default function ListaFichas() {
     }
   };
 
-  // Usa useFocusEffect para recargar los datos cada vez que la pantalla se enfoca
   useFocusEffect(
     useCallback(() => {
       fetchFichas();
       return () => {
-        // Limpieza si fuera necesaria, por ejemplo, cancelar listeners de Firestore
       };
     }, [])
   );
 
-  // Función para manejar la navegación al detalle de una ficha
   const handlePressFicha = (fichaId, currentFichaData) => {
     navigation.navigate('DetalleFicha', { fichaId: fichaId, currentFichaData: currentFichaData });
   };
@@ -89,9 +84,6 @@ export default function ListaFichas() {
             onPress={() => handlePressFicha(item.id, item)}
           >
             <Text style={styles.fichaText}>N° Trampa: {item.n_trampa || 'N/A'}</Text>
-            {/* Puedes añadir más detalles si lo deseas */}
-            {/* <Text style={styles.fichaDetail}>Ruta: {item.ruta}</Text> */}
-            {/* <Text style={styles.fichaDetail}>Oficina: {item.oficina}</Text> */}
           </TouchableOpacity>
         )}
       />

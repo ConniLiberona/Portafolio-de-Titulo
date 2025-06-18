@@ -8,18 +8,15 @@ import {
   Alert,
   TouchableOpacity,
   Platform,
-  Image, // Importa el componente Image
-  ActivityIndicator, // Para el indicador de carga
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { getFirestore, doc, updateDoc, Timestamp } from 'firebase/firestore';
-// Importaciones de Firebase Storage
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import appMoscasSAG from '../../credenciales';
 import { useNavigation } from '@react-navigation/native';
-// Importa expo-image-picker
 import * as ImagePicker from 'expo-image-picker';
 
-// Importaciones condicionales para el DatePicker
 let DatePickerWeb;
 let DateTimePickerNative;
 
@@ -31,19 +28,17 @@ if (Platform.OS === 'web') {
 }
 
 const db = getFirestore(appMoscasSAG);
-const storage = getStorage(appMoscasSAG); // Inicializa Storage
+const storage = getStorage(appMoscasSAG);
 
-// Función auxiliar para extraer la ruta de Storage desde una URL de descarga
-// Esto es necesario para poder eliminar la imagen antigua de Storage.
 function getStoragePathFromUrl(url) {
   if (!url) return null;
   try {
     const urlObj = new URL(url);
-    const pathAndQuery = urlObj.pathname; // e.g., /v0/b/your-bucket.appspot.com/o/fichas_images%2Fimage_name.jpg
+    const pathAndQuery = urlObj.pathname;
     const parts = pathAndQuery.split('/o/');
     if (parts.length < 2) return null;
-    const encodedPath = parts[1]; // e.g., fichas_images%2Fimage_name.jpg
-    return decodeURIComponent(encodedPath); // Decodifica para obtener la ruta limpia
+    const encodedPath = parts[1];
+    return decodeURIComponent(encodedPath);
   } catch (e) {
     console.error("Error al parsear URL de Storage:", e);
     return null;
@@ -57,9 +52,7 @@ export default function EditarFicha({ route }) {
   const [state, setState] = useState(currentFichaData || {});
   const [loading, setLoading] = useState(false);
 
-  // Nuevo estado para la imagen seleccionada localmente (antes de subir)
   const [selectedImage, setSelectedImage] = useState(null);
-  // Nuevo estado para la URL de la imagen que ya está en Firestore
   const [currentImageUrl, setCurrentImageUrl] = useState(null);
 
   const [showNativeDatePicker, setShowNativeDatePicker] = useState(false);
@@ -67,7 +60,6 @@ export default function EditarFicha({ route }) {
 
   useEffect(() => {
     if (currentFichaData) {
-      // Inicializar la fecha como un objeto Date si viene de Timestamp
       if (currentFichaData.fecha && typeof currentFichaData.fecha.toDate === 'function') {
         setState(prevState => ({
           ...prevState,
@@ -77,7 +69,6 @@ export default function EditarFicha({ route }) {
         console.warn("Fecha no es un Timestamp ni Date al cargar, valor:", currentFichaData.fecha);
       }
 
-      // Inicializar campos numéricos como strings para TextInput
       setState(prevState => ({
         ...prevState,
         region: String(prevState.region || ''),
@@ -86,7 +77,6 @@ export default function EditarFicha({ route }) {
         n_trampa: String(prevState.n_trampa || ''),
       }));
 
-      // Inicializar la URL de la imagen actual
       if (currentFichaData.imageUrl) {
         setCurrentImageUrl(currentFichaData.imageUrl);
       }
@@ -129,9 +119,7 @@ export default function EditarFicha({ route }) {
     setIsDatePickerWebOpen(false);
   };
 
-  // Función para seleccionar una imagen
   const pickImage = async () => {
-    // Solicitar permisos en plataformas que lo requieran (no en web)
     if (Platform.OS !== 'web') {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -142,21 +130,17 @@ export default function EditarFicha({ route }) {
 
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true, // Permite recortar o editar la imagen
-      aspect: [4, 3],     // Aspecto de la imagen
-      quality: 0.8,       // Calidad de la imagen (0 a 1)
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.8,
     });
 
     if (!result.canceled) {
-      setSelectedImage(result.assets[0].uri); // Guarda la URI local de la nueva imagen
-      // No modificamos currentImageUrl aquí, solo selectedImage.
-      // currentImageUrl seguirá siendo la URL de la imagen actual en Firestore.
-      // selectedImage representará la imagen que el usuario *quiere* subir.
+      setSelectedImage(result.assets[0].uri);
     }
   };
 
   const updateFicha = async () => {
-    // --- Validación de Campos ---
     if (
       !state.region.trim() || isNaN(Number(state.region)) ||
       !state.oficina.trim() ||
@@ -176,18 +160,15 @@ export default function EditarFicha({ route }) {
       Alert.alert('Error', 'Por favor, seleccione una fecha válida.');
       return;
     }
-    // --- Fin de la Validación de Campos ---
 
     setLoading(true);
 
     try {
       const docRef = doc(db, 'fichas', fichaId);
       const dataToUpdate = { ...state };
-      let finalImageUrl = currentImageUrl; // Inicialmente, mantenemos la URL actual
+      let finalImageUrl = currentImageUrl;
 
-      // Si el usuario seleccionó una NUEVA imagen
       if (selectedImage) {
-        // 1. Eliminar la imagen antigua de Firebase Storage (si existe)
         if (currentImageUrl) {
           const oldPath = getStoragePathFromUrl(currentImageUrl);
           if (oldPath) {
@@ -196,12 +177,8 @@ export default function EditarFicha({ route }) {
               await deleteObject(oldImageRef);
               console.log("Imagen antigua eliminada de Storage:", oldPath);
             } catch (deleteError) {
-              // Si el error es un 'NotFound', significa que la imagen ya no existía, lo cual está bien.
-              // Otros errores (permisos, red) sí deberían ser logueados.
               if (deleteError.code !== 'storage/object-not-found') {
                 console.error("Error al eliminar imagen antigua de Storage:", deleteError);
-                // Opcional: mostrar un Alert si el error es crítico y no se puede ignorar
-                // Alert.alert('Advertencia', 'No se pudo eliminar la imagen antigua de Storage. Continúe con la actualización.');
               } else {
                 console.log("La imagen antigua no se encontró en Storage (posiblemente ya eliminada o URL inválida).");
               }
@@ -209,21 +186,18 @@ export default function EditarFicha({ route }) {
           }
         }
 
-        // 2. Subir la nueva imagen a Firebase Storage
         const response = await fetch(selectedImage);
         const blob = await response.blob();
-        const imageName = `ficha_${fichaId}_${Date.now()}`; // Nombre único para la nueva imagen
+        const imageName = `ficha_${fichaId}_${Date.now()}`;
         const imageRef = ref(storage, `fichas_images/${imageName}`);
-        
-        await uploadBytes(imageRef, blob); // Sube la imagen
-        finalImageUrl = await getDownloadURL(imageRef); // Obtiene la URL de descarga de la nueva imagen
+
+        await uploadBytes(imageRef, blob);
+        finalImageUrl = await getDownloadURL(imageRef);
         console.log("Nueva imagen subida, URL:", finalImageUrl);
       }
 
-      // Actualizar el campo 'imageUrl' en los datos a guardar
       dataToUpdate.imageUrl = finalImageUrl;
 
-      // Convertir campos numéricos y la fecha a sus tipos correctos antes de guardar
       dataToUpdate.region = Number(dataToUpdate.region);
       dataToUpdate.cuadrante = Number(dataToUpdate.cuadrante);
       dataToUpdate.subcuadrante = Number(dataToUpdate.subcuadrante);
@@ -257,7 +231,6 @@ export default function EditarFicha({ route }) {
     <ScrollView style={styles.container}>
       <Text style={styles.title}>Editar Ficha ({state.n_trampa || 'N/A'})</Text>
 
-      {/* Sección 1: Datos de Ubicación */}
       <Text style={styles.sectionTitle}>Datos de Ubicación</Text>
       <View style={styles.row}>
         <View style={styles.item}>
@@ -369,7 +342,6 @@ export default function EditarFicha({ route }) {
         </TouchableOpacity>
       </View>
 
-      {/* Sección 2: Datos de Actividad */}
       <Text style={styles.sectionTitle}>Datos de Actividad</Text>
       <View style={styles.row}>
         <View style={[styles.item, styles.datePickerContainerWeb, isDatePickerWebOpen && styles.datePickerOpenMargin]}>
@@ -453,17 +425,14 @@ export default function EditarFicha({ route }) {
         />
       </View>
 
-      {/* SECCIÓN DE IMAGEN */}
       <Text style={styles.sectionTitle}>Imagen de la Ficha</Text>
       <View style={styles.formGroup}>
-        {/* Muestra la imagen actual si no hay una nueva seleccionada */}
         {!selectedImage && currentImageUrl && (
           <Image
             source={{ uri: currentImageUrl }}
             style={styles.fichaImagePreview}
           />
         )}
-        {/* Muestra la imagen recién seleccionada si existe */}
         {selectedImage && (
           <Image
             source={{ uri: selectedImage }}
@@ -481,8 +450,6 @@ export default function EditarFicha({ route }) {
           </TouchableOpacity>
         )}
       </View>
-      {/* FIN SECCIÓN DE IMAGEN */}
-
 
       <TouchableOpacity style={styles.button} onPress={updateFicha} disabled={loading}>
         <Text style={styles.buttonText}>{loading ? 'Actualizando...' : 'Actualizar Ficha'}</Text>
@@ -653,11 +620,10 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  // Nuevos estilos para la previsualización de la imagen
   fichaImagePreview: {
     width: '100%',
-    height: 200, // Altura fija para la previsualización
-    resizeMode: 'contain', // Ajusta la imagen dentro del contenedor
+    height: 200,
+    resizeMode: 'contain',
     marginTop: 10,
     marginBottom: 10,
     borderRadius: 8,
@@ -665,14 +631,14 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
   },
   imagePickerButton: {
-    backgroundColor: '#1E88E5', // Un color azul para el botón de selección
+    backgroundColor: '#1E88E5',
     paddingVertical: 12,
     borderRadius: 8,
     marginTop: 10,
     alignItems: 'center',
   },
   clearImageButton: {
-    backgroundColor: '#9E9E9E', // Un color gris para el botón de limpiar
+    backgroundColor: '#9E9E9E',
     paddingVertical: 8,
     borderRadius: 8,
     marginTop: 5,

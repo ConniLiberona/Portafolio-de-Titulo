@@ -4,10 +4,10 @@ import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 const ConfirmationModal = ({ visible, message, onConfirm, onCancel, title = "Confirmar Acción" }) => {
   return (
     <Modal
-      animationType="fade" // Puedes cambiar a "slide" si prefieres
+      animationType="fade"
       transparent={true}
       visible={visible}
-      onRequestClose={onCancel} // Para manejar el botón de retroceso en Android, aunque en web es menos común
+      onRequestClose={onCancel}
     >
       <View style={styles.centeredView}>
         <View style={styles.modalView}>
@@ -38,7 +38,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.5)', // Fondo oscuro semitransparente
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalView: {
     margin: 20,
@@ -46,16 +46,16 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 35,
     alignItems: "center",
-    shadowColor: "#000", // Para React Native
+    shadowColor: "#000",
     shadowOffset: {
       width: 0,
       height: 2
     },
-    shadowOpacity: 0.25, // Para React Native
-    shadowRadius: 4,     // Para React Native
-    elevation: 5,        // Para Android
-    boxShadow: '0 0 10px rgba(0,0,0,0.3)', // Para Web (complementa shadow*)
-    maxWidth: 400, // Para que no se estire demasiado en pantallas grandes
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
+    boxShadow: '0 0 10px rgba(0,0,0,0.3)',
+    maxWidth: 400,
     width: '90%',
   },
   modalTitle: {
@@ -78,14 +78,14 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    elevation: 2, // Para Android
+    elevation: 2,
     minWidth: 100,
   },
   confirmButton: {
-    backgroundColor: "#DC3545", // Rojo para confirmar eliminación
+    backgroundColor: "#DC3545",
   },
   cancelButton: {
-    backgroundColor: "#2196F3", // Azul para cancelar
+    backgroundColor: "#2196F3",
   },
   textStyle: {
     color: "white",

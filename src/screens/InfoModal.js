@@ -30,7 +30,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: 'rgba(0,0,0,0.5)', // Fondo oscuro semitransparente
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalView: {
     margin: 20,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     color: '#555',
   },
   errorText: {
-    color: '#D32F2F', // Rojo para mensajes de error
+    color: '#D32F2F',
   },
   button: {
     borderRadius: 10,
@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     minWidth: 100,
   },
   closeButton: {
-    backgroundColor: "#2196F3", // Azul para cerrar
+    backgroundColor: "#2196F3",
   },
   textStyle: {
     color: "white",
