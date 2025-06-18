@@ -1,6 +1,6 @@
 // src/screens/Home.js
 import React, { useState, useEffect, useRef, useContext } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, Image, ImageBackground, Animated, Easing, Alert, TextInput, Button } from 'react-native'; // Asegúrate de importar Button si lo usas en la UI temporal
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, Image, ImageBackground, Animated, Easing, Alert, TextInput, Button } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -58,16 +58,17 @@ const determinarEstadoTrampaPorLogicaDeFechas = (fecha_instalacion, plaga_detect
 export default function Home({ navigation }) {
     const isFocused = useIsFocused();
 
-    const { user, userClaims, loading } = useContext(AuthContext);
+    // Importamos 'forceIdTokenRefresh' del contexto
+    const { user, userClaims, loading, logout, forceIdTokenRefresh } = useContext(AuthContext);
 
     // --- AGREGAR ESTOS CONSOLE.LOGS ---
     useEffect(() => {
         console.log("Home.js: Estado de autenticación y claims:");
-        console.log("  user:", user ? user.email : "null");
-        console.log("  userClaims:", userClaims);
-        console.log("  loading:", loading);
-        console.log("  isAdmin:", userClaims?.admin);
-        console.log("  isCommonUser:", userClaims?.commonUser);
+        console.log("    user:", user ? user.email : "null");
+        console.log("    userClaims:", userClaims);
+        console.log("    loading:", loading);
+        console.log("    isAdmin (from claims):", userClaims?.admin);
+        console.log("    isCommonUser (from claims):", userClaims?.commonUser);
 
         if (!loading && !user) {
             console.warn("Home.js: No hay usuario autenticado después de cargar.");
@@ -79,6 +80,7 @@ export default function Home({ navigation }) {
     // --- FIN CONSOLE.LOGS ---
 
     const [emailToMakeAdmin, setEmailToMakeAdmin] = useState('');
+    const [settingInitialAdmin, setSettingInitialAdmin] = useState(false); // Nuevo estado para el proceso de establecer admin
 
     const [trapCounts, setTrapCounts] = useState({
         'Activa': 0,
@@ -220,20 +222,10 @@ export default function Home({ navigation }) {
         }
     }, [isFocused]);
 
+    // Usamos el `logout` proporcionado por el contexto
     const handleLogout = async () => {
         console.log("¡Botón 'Cerrar Sesión' PRESIONADO! (Inicio de handleLogout)");
-        try {
-            if (!auth) {
-                console.error("handleLogout: La instancia de autenticación (auth) no está definida.");
-                Alert.alert("Error", "No se pudo inicializar la autenticación. Por favor, reinicia la app.");
-                return;
-            }
-            await signOut(auth);
-            console.log("handleLogout: Llamada a signOut() completada.");
-        } catch (error) {
-            console.error("handleLogout: Error al cerrar sesión:", error.code, error.message);
-            Alert.alert(`Error`, `No se pudo cerrar la sesión: ${error.message}.`);
-        }
+        logout(); // Llama a la función logout del contexto
     };
 
     const callAddInitialAdmin = async () => {
@@ -242,14 +234,23 @@ export default function Home({ navigation }) {
             return;
         }
 
+        setSettingInitialAdmin(true); // Activa el estado de carga
         try {
             const addInitialAdminFunction = httpsCallable(functionsInstance, 'addInitialAdmin');
             const result = await addInitialAdminFunction({ email: emailToMakeAdmin });
             Alert.alert('Éxito', result.data.message + '\nPor favor, cierra sesión y vuelve a iniciar para que el rol se actualice.');
             setEmailToMakeAdmin('');
+
+            // Si el usuario actual es el que se acaba de hacer admin, fuerza el refresco de su token
+            if (user && user.email === emailToMakeAdmin) {
+                await forceIdTokenRefresh();
+                console.log("Token refrescado después de establecerse como admin.");
+            }
         } catch (error) {
             console.error("Error al llamar addInitialAdmin:", error);
             Alert.alert('Error', error.message || 'No se pudo establecer el administrador inicial.');
+        } finally {
+            setSettingInitialAdmin(false); // Desactiva el estado de carga
         }
     };
 
@@ -266,12 +267,13 @@ export default function Home({ navigation }) {
         </View>
     );
 
+    // Muestra un indicador de carga mientras el contexto se carga
     if (loading) {
-      return (
-        <View style={styles.container}>
-          <Text style={styles.loadingText}>Cargando información del usuario y roles...</Text>
-        </View>
-      );
+        return (
+            <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>Cargando información del usuario y roles...</Text>
+            </View>
+        );
     }
 
     // Determina si el usuario es administrador
@@ -279,6 +281,9 @@ export default function Home({ navigation }) {
     // Determina si el usuario es un usuario común (si no es admin y tiene el claim commonUser)
     const isCommonUser = userClaims?.commonUser;
 
+    // La UI temporal de admin solo se muestra si NO HAY UN ADMINISTRADOR YA (isAdmin es false)
+    // Y el usuario actual no es un usuario común con un rol definido (para evitar mostrarlo a usuarios sin rol)
+    const showInitialAdminSetup = !isAdmin && !isCommonUser;
 
     return (
         <ImageBackground
@@ -317,7 +322,7 @@ export default function Home({ navigation }) {
                         {/* Información de bienvenida y rol del usuario */}
                         <View style={styles.welcomeInfoContainer}>
                             <Text style={styles.roleText}>
-                                Rol: {isAdmin ? 'Administrador' : isCommonUser ? 'Usuario Común' : 'Ninguno'}
+                                Rol: {isAdmin ? 'Administrador' : isCommonUser ? 'Usuario Común' : 'Sin Rol Asignado'}
                             </Text>
                         </View>
 
@@ -345,8 +350,11 @@ export default function Home({ navigation }) {
                             )}
                         </View>
 
-
+                        {/* ========================================================= */}
+                        {/* INICIO DE LOS CAMBIOS PARA LA DISPOSICIÓN DE BOTONES */}
+                        {/* ========================================================= */}
                         <View style={styles.navigationGrid}>
+                            {/* Grupo de botones principales para todos los usuarios */}
                             <View style={styles.gridRow}>
                                 <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('MapScreen')}>
                                     <Text style={styles.buttonIcon}>🗺️</Text>
@@ -357,67 +365,62 @@ export default function Home({ navigation }) {
                                     <Text style={styles.buttonIcon}>📝</Text>
                                     <Text style={styles.gridButtonText}>Nueva Ficha</Text>
                                 </TouchableOpacity>
-                            </View>
 
-                            <View style={styles.gridRow}>
                                 <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('ListaFichas')}>
                                     <Text style={styles.buttonIcon}>📄</Text>
                                     <Text style={styles.gridButtonText}>Listado de Fichas</Text>
                                 </TouchableOpacity>
 
-                                {/* Solo visible para administradores */}
-                                {isAdmin ? (
-                                  <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('GestionUsuarios')}>
-                                      <Text style={styles.buttonIcon}>👥</Text>
-                                      <Text style={styles.gridButtonText}>Gestión de Usuarios</Text>
-                                  </TouchableOpacity>
-                                ) : (
-                                  // Espacio en blanco o botón inactivo para usuarios comunes
-                                  <View style={styles.gridButtonPlaceholder} />
+                                {/* Botones de administrador, solo se renderizan si isAdmin es true */}
+                                {isAdmin && (
+                                    <>
+                                        <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('GestionUsuarios')}>
+                                            <Text style={styles.buttonIcon}>👥</Text>
+                                            <Text style={styles.gridButtonText}>Gestión de Usuarios</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Papelera')}>
+                                            <Text style={styles.buttonIcon}>🗑️</Text>
+                                            <Text style={styles.gridButtonText}>Papelera</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Configuracion')}>
+                                            <Text style={styles.buttonIcon}>⚙️</Text>
+                                            <Text style={styles.gridButtonText}>Configuración</Text>
+                                        </TouchableOpacity>
+                                    </>
                                 )}
                             </View>
-
-                            {isAdmin && ( // Solo mostrar esta fila si es administrador
-                                <View style={styles.gridRow}>
-                                    <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Papelera')}>
-                                        <Text style={styles.buttonIcon}>🗑️</Text>
-                                        <Text style={styles.gridButtonText}>Papelera</Text>
-                                    </TouchableOpacity>
-
-                                    <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Configuracion')}>
-                                        <Text style={styles.buttonIcon}>⚙️</Text>
-                                        <Text style={styles.gridButtonText}>Configuración</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
                         </View>
+                        {/* ========================================================= */}
+                        {/* FIN DE LOS CAMBIOS PARA LA DISPOSICIÓN DE BOTONES */}
+                        {/* ========================================================= */}
+
 
                         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                             <Text style={styles.logoutButtonText}>🚪 Cerrar Sesión</Text>
                         </TouchableOpacity>
 
                         {/* --- UI TEMPORAL PARA addInitialAdmin (¡BORRAR DESPUÉS!) --- */}
-                        {!isAdmin && ( // Solo visible si NO es administrador (para la configuración inicial)
-                          <View style={styles.tempAdminContainer}>
-                            <Text style={styles.tempAdminTitle}>CONFIGURACIÓN INICIAL DE ADMIN (TEMPORAL)</Text>
-                            <TextInput
-                              style={styles.tempAdminInput}
-                              placeholder="Email del primer Admin"
-                              value={emailToMakeAdmin}
-                              onChangeText={setEmailToMakeAdmin}
-                              keyboardType="email-address"
-                              autoCapitalize="none"
-                            />
-                            {/* Asegúrate de que el componente Button esté importado si lo usas aquí */}
-                            <Button
-                              title="Establecer Primer Admin"
-                              onPress={callAddInitialAdmin}
-                              color="orange"
-                            />
-                            <Text style={styles.tempAdminWarning}>
-                              ¡ADVERTENCIA: Elimina esta función y esta UI después de usarla!
-                            </Text>
-                          </View>
+                        {showInitialAdminSetup && ( // ¡Condición modificada aquí!
+                            <View style={styles.tempAdminContainer}>
+                                <Text style={styles.tempAdminTitle}>CONFIGURACIÓN INICIAL DE ADMIN (TEMPORAL)</Text>
+                                <TextInput
+                                    style={styles.tempAdminInput}
+                                    placeholder="Email del primer Admin"
+                                    value={emailToMakeAdmin}
+                                    onChangeText={setEmailToMakeAdmin}
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                />
+                                <Button
+                                    title={settingInitialAdmin ? "Estableciendo..." : "Establecer Primer Admin"} // Actualizado para reflejar el estado de carga
+                                    onPress={callAddInitialAdmin}
+                                    disabled={settingInitialAdmin} // Deshabilita mientras se procesa
+                                    color="orange"
+                                />
+                                <Text style={styles.tempAdminWarning}>
+                                    ¡ADVERTENCIA: Elimina esta función y esta UI después de usarla!
+                                </Text>
+                            </View>
                         )}
                         {/* --- FIN UI TEMPORAL --- */}
 
@@ -528,16 +531,20 @@ const styles = StyleSheet.create({
     },
     gridRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        flexWrap: 'wrap', // Permite que los elementos se envuelvan a la siguiente línea
+        justifyContent: 'center', // Centra los elementos horizontalmente
+        alignItems: 'center',    // Centra los elementos verticalmente
         marginBottom: 10,
+        width: '100%', // Asegura que la fila ocupe todo el ancho para que el centrado funcione
     },
     gridButton: {
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
         borderRadius: 12,
         paddingVertical: 18,
         paddingHorizontal: 15,
-        flex: 1,
-        marginHorizontal: 7,
+        width: '45%', // Ajustado para que quepan 2 por fila (aprox. 50% menos margen)
+        marginHorizontal: '2.5%', // Margen para espacio entre botones (ajustar según sea necesario)
+        marginBottom: 10, // Añadir un margen inferior para separar las filas de botones
         alignItems: 'center',
         justifyContent: 'center',
         shadowColor: 'rgba(0, 0, 0, 0.1)',
@@ -549,12 +556,13 @@ const styles = StyleSheet.create({
         borderColor: '#BDC3C7',
         minHeight: 90,
     },
-    gridButtonPlaceholder: {
-        flex: 1,
-        marginHorizontal: 7,
-        minHeight: 90,
-        backgroundColor: 'transparent',
-    },
+    // Eliminamos el gridButtonPlaceholder ya que no lo usaremos más en esta configuración
+    // gridButtonPlaceholder: {
+    //     width: '45%',
+    //     marginHorizontal: '2.5%',
+    //     minHeight: 90,
+    //     backgroundColor: 'transparent',
+    // },
     buttonIcon: {
         fontSize: 26,
         marginBottom: 5,
@@ -639,6 +647,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: 'darkred',
         textAlign: 'center',
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f0f0f0',
     },
     loadingText: {
         fontSize: 18,
