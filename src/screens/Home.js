@@ -1,35 +1,28 @@
 // src/screens/Home.js
-import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, Image, ImageBackground, Animated, Easing } from 'react-native';
+import React, { useState, useEffect, useRef, useContext } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Dimensions, Image, ImageBackground, Animated, Easing, Alert, TextInput, Button } from 'react-native'; // Asegúrate de importar Button si lo usas en la UI temporal
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 
+// Importaciones de Firebase que ya tenías
 import { getAuth, signOut } from 'firebase/auth';
 import { getFirestore, collection, getDocs, query } from 'firebase/firestore';
+// Importaciones de Firebase Functions para la función addInitialAdmin
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import appMoscasSAG from '../../credenciales';
+
+// Importar AuthContext
+import { AuthContext } from '../context/AuthContext';
 
 const auth = getAuth(appMoscasSAG);
 const db = getFirestore(appMoscasSAG);
+const functionsInstance = getFunctions(appMoscasSAG);
 
 const APP_HORIZONTAL_PADDING = 24;
 
-// Las constantes de días activos/vencimiento ya no son estrictamente necesarias
-// para el CONTEO si el estado ya está definido en la BD.
-// Las mantengo aquí por si las usas para otra lógica o validación futura.
 const DAYS_ACTIVE = 14;
 const DAYS_NEAR_EXPIRY = 28;
 
-/**
- * [OPCIONAL] Función para determinar el estado de una trampa basada en lógica de fechas.
- * Esto SOLO se usa si el campo 'estado' en Firestore no es el que quieres para el resumen
- * o si quieres tener una lógica de estado calculada en algún otro lugar de la app.
- * Para el resumen operacional, si ya tienes un campo 'estado' en Firestore, no se usa.
- *
- * @param {firebase.firestore.Timestamp | Date} fecha_instalacion La fecha de instalación de la trampa.
- * @param {boolean} plaga_detectada Indica si se ha detectado plaga.
- * @param {boolean} retirada Indica si la trampa ha sido retirada.
- * @returns {string} El estado de la trampa ("Activa", "Próxima a vencer", "Vencida", "Inactiva/Retirada", "Fecha Inválida").
- */
 const determinarEstadoTrampaPorLogicaDeFechas = (fecha_instalacion, plaga_detectada = false, retirada = false) => {
     if (retirada) {
         return "Inactiva/Retirada";
@@ -46,9 +39,8 @@ const determinarEstadoTrampaPorLogicaDeFechas = (fecha_instalacion, plaga_detect
     }
 
     const hoy = new Date();
-    // Normalizamos 'hoy' a medianoche para que la diferencia de días sea precisa
-    hoy.setHours(0, 0, 0, 0); 
-    instalacion.setHours(0, 0, 0, 0); 
+    hoy.setHours(0, 0, 0, 0);
+    instalacion.setHours(0, 0, 0, 0);
 
     const diffTime = Math.abs(hoy.getTime() - instalacion.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -63,48 +55,65 @@ const determinarEstadoTrampaPorLogicaDeFechas = (fecha_instalacion, plaga_detect
 };
 
 
-export default function Home() {
-    const navigation = useNavigation();
+export default function Home({ navigation }) {
     const isFocused = useIsFocused();
+
+    const { user, userClaims, loading } = useContext(AuthContext);
+
+    // --- AGREGAR ESTOS CONSOLE.LOGS ---
+    useEffect(() => {
+        console.log("Home.js: Estado de autenticación y claims:");
+        console.log("  user:", user ? user.email : "null");
+        console.log("  userClaims:", userClaims);
+        console.log("  loading:", loading);
+        console.log("  isAdmin:", userClaims?.admin);
+        console.log("  isCommonUser:", userClaims?.commonUser);
+
+        if (!loading && !user) {
+            console.warn("Home.js: No hay usuario autenticado después de cargar.");
+        }
+        if (!loading && user && !userClaims) {
+            console.warn("Home.js: Usuario autenticado pero claims no cargados/disponibles.");
+        }
+    }, [user, userClaims, loading]);
+    // --- FIN CONSOLE.LOGS ---
+
+    const [emailToMakeAdmin, setEmailToMakeAdmin] = useState('');
 
     const [trapCounts, setTrapCounts] = useState({
         'Activa': 0,
         'Próxima a vencer': 0,
         'Vencida': 0,
-        'Inactiva/Retirada': 0, // Añadido para conteo si lo quieres mostrar
+        'Inactiva/Retirada': 0,
         'Total': 0,
-        // Si tienes otros estados definidos en Firestore, agrégalos aquí.
-        // Por ejemplo: 'Requiere Revisión': 0
+        'Estado Desconocido': 0,
     });
     const [loadingCounts, setLoadingCounts] = useState(true);
     const [lastUpdateDate, setLastUpdateDate] = useState('N/A');
 
-    // Referencias para los valores animados de opacidad
     const animatedOpacityActive = useRef(new Animated.Value(1)).current;
     const animatedOpacityNearExpiry = useRef(new Animated.Value(1)).current;
     const animatedOpacityExpired = useRef(new Animated.Value(1)).current;
 
-    // Mapa de referencias animadas por estado
     const animatedOpacities = {
         'Activa': animatedOpacityActive,
         'Próxima a vencer': animatedOpacityNearExpiry,
         'Vencida': animatedOpacityExpired,
     };
 
-    // Función para iniciar la animación de parpadeo
     const startBlinkingAnimation = (animatedValue) => {
-        animatedValue.setValue(1); // Asegurarse de que empieza visible
+        animatedValue.setValue(1);
         Animated.loop(
             Animated.sequence([
                 Animated.timing(animatedValue, {
-                    toValue: 0.2, // Casi transparente
-                    duration: 800, // Duración del "apagado"
+                    toValue: 0.2,
+                    duration: 800,
                     easing: Easing.ease,
                     useNativeDriver: true,
                 }),
                 Animated.timing(animatedValue, {
-                    toValue: 1, // Totalmente visible
-                    duration: 800, // Duración del "encendido"
+                    toValue: 1,
+                    duration: 800,
                     easing: Easing.ease,
                     useNativeDriver: true,
                 }),
@@ -112,13 +121,11 @@ export default function Home() {
         ).start();
     };
 
-    // Función para detener la animación
     const stopBlinkingAnimation = (animatedValue) => {
         animatedValue.stopAnimation();
-        animatedValue.setValue(1); // Dejarlo visible
+        animatedValue.setValue(1);
     };
 
-    // Efecto para controlar las animaciones de parpadeo
     useEffect(() => {
         const statesToBlink = ['Próxima a vencer', 'Vencida'];
 
@@ -142,17 +149,15 @@ export default function Home() {
 
     const fetchTrapCounts = async () => {
         setLoadingCounts(true);
-        // Resetear los conteos para cada carga
         const counts = {
             'Activa': 0,
             'Próxima a vencer': 0,
             'Vencida': 0,
             'Inactiva/Retirada': 0,
             'Total': 0,
-            // Asegúrate de incluir cualquier otro estado que exista en tu campo 'estado' de Firestore
-            'Estado Desconocido': 0, // Para estados que no esperábamos
+            'Estado Desconocido': 0,
         };
-        let latestTimestamp = null; 
+        let latestTimestamp = null;
 
         try {
             const q = query(collection(db, 'pins'));
@@ -161,28 +166,20 @@ export default function Home() {
             querySnapshot.forEach((doc) => {
                 const data = doc.data();
 
-                // *** CAMBIO CLAVE AQUÍ ***
-                // Usar directamente el campo 'estado' del documento de Firestore
-                const estadoGuardadoEnFirestore = data.estado; 
-                
-                // Incrementar el contador del estado que viene de Firestore
+                const estadoGuardadoEnFirestore = data.estado;
+
                 if (typeof estadoGuardadoEnFirestore === 'string' && counts.hasOwnProperty(estadoGuardadoEnFirestore)) {
                     counts[estadoGuardadoEnFirestore]++;
                 } else if (typeof estadoGuardadoEnFirestore === 'string') {
-                    // Si el estado es una cadena pero no está en nuestros contadores predefinidos
-                    // Lo puedes contar aquí o simplemente emitir un warning
                     console.warn(`Estado no reconocido '${estadoGuardadoEnFirestore}' para el documento '${doc.id}'. Se cuenta en 'Estado Desconocido'.`);
                     counts['Estado Desconocido']++;
                 } else {
-                    // Si el campo 'estado' no existe o no es una cadena
                     console.warn(`Documento '${doc.id}' no tiene un campo 'estado' válido. Se cuenta en 'Estado Desconocido'.`);
                     counts['Estado Desconocido']++;
                 }
-                
-                counts.Total++; // Siempre incrementar el total
 
-                // --- Lógica para el latestTimestamp (Última Actualización General del Dashboard) ---
-                // Esto sigue usando el 'timestamp' del documento (fecha de última modificación).
+                counts.Total++;
+
                 let currentDocTimestamp = null;
                 if (data.timestamp && typeof data.timestamp.toDate === 'function') {
                     currentDocTimestamp = data.timestamp.toDate();
@@ -190,30 +187,28 @@ export default function Home() {
                     currentDocTimestamp = data.timestamp;
                 }
 
-                if (currentDocTimestamp instanceof Date && !isNaN(currentDocTimestamp.getTime()) && 
+                if (currentDocTimestamp instanceof Date && !isNaN(currentDocTimestamp.getTime()) &&
                     (!latestTimestamp || currentDocTimestamp > latestTimestamp)) {
                     latestTimestamp = currentDocTimestamp;
                 }
             });
 
             setTrapCounts(counts);
-            // Formatear la fecha de la última actualización
             if (latestTimestamp) {
-                const options = { 
-                    year: 'numeric', 
-                    month: '2-digit', 
-                    day: '2-digit', 
-                    hour: '2-digit', 
+                const options = {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
                     minute: '2-digit',
-                    hour12: false // Formato 24 horas
+                    hour12: false
                 };
-                setLastUpdateDate(latestTimestamp.toLocaleDateString('es-CL', options)); 
+                setLastUpdateDate(latestTimestamp.toLocaleDateString('es-CL', options));
             } else {
                 setLastUpdateDate('N/A');
             }
         } catch (error) {
             console.error("Error al cargar los conteos de trampas: ", error);
-            // showInfoModal("Error de Carga", "No se pudieron cargar los datos del resumen. Intenta de nuevo.", true);
         } finally {
             setLoadingCounts(false);
         }
@@ -225,20 +220,36 @@ export default function Home() {
         }
     }, [isFocused]);
 
-
     const handleLogout = async () => {
         console.log("¡Botón 'Cerrar Sesión' PRESIONADO! (Inicio de handleLogout)");
         try {
             if (!auth) {
                 console.error("handleLogout: La instancia de autenticación (auth) no está definida.");
-                alert("Error: No se pudo inicializar la autenticación. Por favor, reinicia la app.");
+                Alert.alert("Error", "No se pudo inicializar la autenticación. Por favor, reinicia la app.");
                 return;
             }
             await signOut(auth);
             console.log("handleLogout: Llamada a signOut() completada.");
         } catch (error) {
             console.error("handleLogout: Error al cerrar sesión:", error.code, error.message);
-            alert(`Error: No se pudo cerrar la sesión: ${error.message}.`);
+            Alert.alert(`Error`, `No se pudo cerrar la sesión: ${error.message}.`);
+        }
+    };
+
+    const callAddInitialAdmin = async () => {
+        if (!emailToMakeAdmin) {
+            Alert.alert('Error', 'Por favor, introduce el email del usuario a hacer admin.');
+            return;
+        }
+
+        try {
+            const addInitialAdminFunction = httpsCallable(functionsInstance, 'addInitialAdmin');
+            const result = await addInitialAdminFunction({ email: emailToMakeAdmin });
+            Alert.alert('Éxito', result.data.message + '\nPor favor, cierra sesión y vuelve a iniciar para que el rol se actualice.');
+            setEmailToMakeAdmin('');
+        } catch (error) {
+            console.error("Error al llamar addInitialAdmin:", error);
+            Alert.alert('Error', error.message || 'No se pudo establecer el administrador inicial.');
         }
     };
 
@@ -248,12 +259,26 @@ export default function Home() {
                 style={[
                     styles.colorIndicator,
                     { backgroundColor: getEstadoColor(estado) },
-                    animatedOpacity ? { opacity: animatedOpacity } : null 
+                    animatedOpacity ? { opacity: animatedOpacity } : null
                 ]}
             />
             <Text style={styles.cardText}>{estado}: <Text style={styles.highlightText}>{count}</Text></Text>
         </View>
     );
+
+    if (loading) {
+      return (
+        <View style={styles.container}>
+          <Text style={styles.loadingText}>Cargando información del usuario y roles...</Text>
+        </View>
+      );
+    }
+
+    // Determina si el usuario es administrador
+    const isAdmin = userClaims?.admin;
+    // Determina si el usuario es un usuario común (si no es admin y tiene el claim commonUser)
+    const isCommonUser = userClaims?.commonUser;
+
 
     return (
         <ImageBackground
@@ -289,6 +314,14 @@ export default function Home() {
 
                         <Text style={styles.serviceText}>SERVICIO AGRICOLA Y GANADERO</Text>
 
+                        {/* Información de bienvenida y rol del usuario */}
+                        <View style={styles.welcomeInfoContainer}>
+                            <Text style={styles.roleText}>
+                                Rol: {isAdmin ? 'Administrador' : isCommonUser ? 'Usuario Común' : 'Ninguno'}
+                            </Text>
+                        </View>
+
+                        {/* El resumen operacional es visible para todos */}
                         <View style={styles.infoCard}>
                             <Text style={styles.cardTitle}>Resumen Operacional</Text>
                             {loadingCounts ? (
@@ -300,7 +333,6 @@ export default function Home() {
                                     <StatusRow estado="Activa" count={trapCounts.Activa} animatedOpacity={animatedOpacities['Activa']} />
                                     <StatusRow estado="Próxima a vencer" count={trapCounts['Próxima a vencer']} animatedOpacity={animatedOpacities['Próxima a vencer']} />
                                     <StatusRow estado="Vencida" count={trapCounts.Vencida} animatedOpacity={animatedOpacities['Vencida']} />
-                                    {/* Muestra conteos para otros estados si los tienes en trapCounts y quieres visualizarlos */}
                                     {trapCounts['Inactiva/Retirada'] > 0 && (
                                         <StatusRow estado="Inactiva/Retirada" count={trapCounts['Inactiva/Retirada']} />
                                     )}
@@ -312,6 +344,7 @@ export default function Home() {
                                 </>
                             )}
                         </View>
+
 
                         <View style={styles.navigationGrid}>
                             <View style={styles.gridRow}>
@@ -332,28 +365,62 @@ export default function Home() {
                                     <Text style={styles.gridButtonText}>Listado de Fichas</Text>
                                 </TouchableOpacity>
 
-                                <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('GestionUsuarios')}>
-                                    <Text style={styles.buttonIcon}>👥</Text>
-                                    <Text style={styles.gridButtonText}>Gestión de Usuarios</Text>
-                                </TouchableOpacity>
+                                {/* Solo visible para administradores */}
+                                {isAdmin ? (
+                                  <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('GestionUsuarios')}>
+                                      <Text style={styles.buttonIcon}>👥</Text>
+                                      <Text style={styles.gridButtonText}>Gestión de Usuarios</Text>
+                                  </TouchableOpacity>
+                                ) : (
+                                  // Espacio en blanco o botón inactivo para usuarios comunes
+                                  <View style={styles.gridButtonPlaceholder} />
+                                )}
                             </View>
 
-                            <View style={styles.gridRow}>
-                                <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Papelera')}>
-                                    <Text style={styles.buttonIcon}>🗑️</Text>
-                                    <Text style={styles.gridButtonText}>Papelera</Text>
-                                </TouchableOpacity>
+                            {isAdmin && ( // Solo mostrar esta fila si es administrador
+                                <View style={styles.gridRow}>
+                                    <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Papelera')}>
+                                        <Text style={styles.buttonIcon}>🗑️</Text>
+                                        <Text style={styles.gridButtonText}>Papelera</Text>
+                                    </TouchableOpacity>
 
-                                <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Configuracion')}>
-                                    <Text style={styles.buttonIcon}>⚙️</Text>
-                                    <Text style={styles.gridButtonText}>Configuración</Text>
-                                </TouchableOpacity>
-                            </View>
+                                    <TouchableOpacity style={styles.gridButton} onPress={() => navigation.navigate('Configuracion')}>
+                                        <Text style={styles.buttonIcon}>⚙️</Text>
+                                        <Text style={styles.gridButtonText}>Configuración</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
 
                         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                             <Text style={styles.logoutButtonText}>🚪 Cerrar Sesión</Text>
                         </TouchableOpacity>
+
+                        {/* --- UI TEMPORAL PARA addInitialAdmin (¡BORRAR DESPUÉS!) --- */}
+                        {!isAdmin && ( // Solo visible si NO es administrador (para la configuración inicial)
+                          <View style={styles.tempAdminContainer}>
+                            <Text style={styles.tempAdminTitle}>CONFIGURACIÓN INICIAL DE ADMIN (TEMPORAL)</Text>
+                            <TextInput
+                              style={styles.tempAdminInput}
+                              placeholder="Email del primer Admin"
+                              value={emailToMakeAdmin}
+                              onChangeText={setEmailToMakeAdmin}
+                              keyboardType="email-address"
+                              autoCapitalize="none"
+                            />
+                            {/* Asegúrate de que el componente Button esté importado si lo usas aquí */}
+                            <Button
+                              title="Establecer Primer Admin"
+                              onPress={callAddInitialAdmin}
+                              color="orange"
+                            />
+                            <Text style={styles.tempAdminWarning}>
+                              ¡ADVERTENCIA: Elimina esta función y esta UI después de usarla!
+                            </Text>
+                          </View>
+                        )}
+                        {/* --- FIN UI TEMPORAL --- */}
+
                     </View>
                 </ScrollView>
             </LinearGradient>
@@ -409,6 +476,22 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         letterSpacing: 0.8,
         opacity: 0.8,
+    },
+    welcomeInfoContainer: {
+        marginBottom: 20,
+        alignItems: 'center',
+    },
+    welcomeText: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        marginBottom: 5,
+        color: '#34495E',
+    },
+    roleText: {
+        fontSize: 18,
+        marginBottom: 0,
+        color: '#666',
+        fontWeight: '600',
     },
     infoCard: {
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
@@ -466,6 +549,12 @@ const styles = StyleSheet.create({
         borderColor: '#BDC3C7',
         minHeight: 90,
     },
+    gridButtonPlaceholder: {
+        flex: 1,
+        marginHorizontal: 7,
+        minHeight: 90,
+        backgroundColor: 'transparent',
+    },
     buttonIcon: {
         fontSize: 26,
         marginBottom: 5,
@@ -514,16 +603,58 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#ccc',
     },
+    tempAdminContainer: {
+        marginTop: 30,
+        padding: 20,
+        borderWidth: 1,
+        borderColor: 'red',
+        borderRadius: 10,
+        width: '100%',
+        maxWidth: 350,
+        alignItems: 'center',
+        backgroundColor: '#ffe0e0',
+        shadowColor: 'rgba(255, 0, 0, 0.2)',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+        elevation: 10,
+    },
+    tempAdminTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: 'red',
+    },
+    tempAdminInput: {
+        borderWidth: 1,
+        borderColor: '#ccc',
+        padding: 8,
+        width: '100%',
+        marginBottom: 10,
+        borderRadius: 5,
+        backgroundColor: 'white',
+    },
+    tempAdminWarning: {
+        marginTop: 10,
+        fontSize: 12,
+        color: 'darkred',
+        textAlign: 'center',
+    },
+    loadingText: {
+        fontSize: 18,
+        color: '#34495E',
+        fontWeight: '600',
+    }
 });
 
 const getEstadoColor = (estado) => {
     switch (estado) {
-        case 'Activa': return '#4CAF50'; // Verde
-        case 'Próxima a vencer': return '#FFC107'; // Amarillo
-        case 'Vencida': return '#F44336'; // Rojo
-        case 'Inactiva/Retirada': return '#9E9E9E'; // Gris (se mantiene la definición aunque no se muestre)
-        case 'Requiere revisión': return '#2196F3'; // Azul (se mantiene la definición aunque no se muestre)
-        case 'Estado Desconocido': return '#78909C'; // Para estados no mapeados/válidos
-        default: return '#000'; // Color por defecto si el estado no está en la lista
+        case 'Activa': return '#4CAF50';
+        case 'Próxima a vencer': return '#FFC107';
+        case 'Vencida': return '#F44336';
+        case 'Inactiva/Retirada': return '#9E9E9E';
+        case 'Requiere revisión': return '#2196F3';
+        case 'Estado Desconocido': return '#78909C';
+        default: return '#000';
     }
 };
