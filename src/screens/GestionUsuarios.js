@@ -74,7 +74,6 @@ export default function GestionUsuarios() {
       newClaims.commonUser = true;
     }
 
-
     try {
       const updateUserRoleFunction = httpsCallable(functionsInstance, 'updateUserRole');
       const result = await updateUserRoleFunction({ uid, claims: newClaims });
@@ -133,17 +132,19 @@ export default function GestionUsuarios() {
         <Button title="Crear Usuario" onPress={handleCreateUser} />
       </View>
 
-      <View style={styles.card}>
+      <View style={[styles.card, { flex: 1 }]}>
         <Text style={styles.cardTitle}>Usuarios Existentes</Text>
         <FlatList
           data={users}
           keyExtractor={item => item.uid}
           renderItem={({ item }) => (
             <View style={styles.userItem}>
-              <Text style={styles.userEmail}>{item.email}</Text>
-              <Text style={styles.userRole}>
-                Rol: {item.customClaims?.admin ? 'Administrador' : item.customClaims?.commonUser ? 'Usuario Común' : 'Ninguno'}
-              </Text>
+              <View style={styles.userInfo}>
+                <Text style={styles.userEmail}>{item.email}</Text>
+                <Text style={styles.userRole}>
+                  Rol: {item.customClaims?.admin ? 'Administrador' : item.customClaims?.commonUser ? 'Usuario Común' : 'Ninguno'}
+                </Text>
+              </View>
               <Button
                 title={item.customClaims?.admin ? "Quitar Admin" : "Hacer Admin"}
                 onPress={() => handleUpdateUserRole(item.uid, item.customClaims, !item.customClaims?.admin)}
@@ -210,23 +211,26 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 10,
+    justifyContent: 'center',
   },
   userItem: {
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  userInfo: {
+    flex: 1,
+    marginRight: 10,
   },
   userEmail: {
     fontSize: 16,
     fontWeight: 'bold',
-    flex: 1,
   },
   userRole: {
     fontSize: 14,
     color: '#777',
-    marginRight: 10,
   },
 });

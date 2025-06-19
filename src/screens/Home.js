@@ -449,13 +449,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#34495E',
     marginTop: 5,
-    marginBottom: 10,
+    marginBottom: 5, // Ajustado de 10 a 5 para reducir el espacio
     textAlign: 'center',
     letterSpacing: 0.8,
     opacity: 0.8,
   },
   welcomeInfoContainer: {
-    marginBottom: 20,
+    marginBottom: 5, // Ajustado de 20 a 5 para reducir el espacio
     alignItems: 'center',
   },
   welcomeText: {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
   },
   roleText: {
     fontSize: 18,
-    marginBottom: 0,
+    marginBottom: 0, // Mantenido en 0 para no agregar espacio adicional dentro del contenedor
     color: '#666',
     fontWeight: '600',
   },
