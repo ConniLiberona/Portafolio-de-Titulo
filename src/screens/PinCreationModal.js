@@ -66,7 +66,6 @@ export default function PinCreationModal({ visible, onClose, onSave, coords }) {
             estado: selectedEstado,
             n_trampa: numeroTrampa,
         });
-        // onClose();
     };
 
     const handleCreateFicha = () => {
@@ -199,6 +198,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: 'rgba(0, 0, 0, 0.4)',
+        zIndex: 9999,
     },
     modalView: {
         margin: 20,
@@ -214,6 +214,7 @@ const styles = StyleSheet.create({
         width: width * 0.9,
         maxHeight: height * 0.9,
         overflow: 'hidden',
+        zIndex: 10000,
     },
     scrollViewContent: {
         flexGrow: 1,

@@ -6,7 +6,7 @@ import L from 'leaflet';
 import { useNavigation } from '@react-navigation/native';
 
 import PinCreationModal from './PinCreationModal';
-import ConfirmationModal from './ConfirmationModal';
+import ConfirmationModal from './ConfirmationModal'; // Asumo que se usa en otra parte, si no, puedes quitarlo
 import SuccessModal from './SuccessModal';
 import MarkerInfoModal from './MarkerInfoModal';
 
@@ -114,6 +114,7 @@ function MapInteractionHandler({ targetLocation, markerToOpenId, markerRefs, onM
 
   useEffect(() => {
     if (markerToOpenId && markerRefs.current[markerToOpenId]) {
+      // Acceder a las opciones del marcador para obtener markerData
       const marker = markerRefs.current[markerToOpenId].options.markerData;
       if (marker) {
         onMarkerClickedFromSearch(marker);
@@ -197,8 +198,8 @@ export default function MapScreenWeb() {
   const [markerToOpenId, setMarkerToOpenId] = useState(null);
   const markerRefs = useRef({});
 
-  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false);
-  const [pinToDeleteId, setPinToDeleteId] = useState(null);
+  const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState(false); // No se usa, considerar eliminar
+  const [pinToDeleteId, setPinToDeleteId] = useState(null); // No se usa, considerar eliminar
 
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -206,6 +207,9 @@ export default function MapScreenWeb() {
   const [errorMessage, setErrorMessage] = useState('');
 
   const navigation = useNavigation();
+
+  // Determinar si algún modal está visible
+  const anyModalVisible = isModalVisible || isMarkerInfoModalVisible || showSuccessModal || showErrorModal;
 
   const openSuccessModal = (message) => {
     setSuccessMessage(message);
@@ -241,8 +245,6 @@ export default function MapScreenWeb() {
   const handleSavePin = async (pinData) => {
     try {
       const nTrampaToSave = pinData.n_trampa;
-      console.log("Guardando nuevo pin con n_trampa:", nTrampaToSave);
-
       const docRef = await addDoc(collection(db, 'pins'), {
         lat: pinData.lat,
         lng: pinData.lng,
@@ -265,9 +267,7 @@ export default function MapScreenWeb() {
         retirada: (pinData.estado === 'Inactiva/Retirada'),
         estado: pinData.estado,
       }]);
-      console.log("Pin añadido al estado local:", { id: docRef.id, ...pinData, n_trampa: nTrampaToSave });
     } catch (error) {
-      console.error("Error al guardar la trampa en Firestore: ", error);
       openErrorModal('No se pudo guardar la trampa en Firestore. Revisa tu conexión o permisos.');
     } finally {
         handleCloseModal();
@@ -335,7 +335,6 @@ export default function MapScreenWeb() {
           openSuccessModal("Mapa centrado en tu ubicación actual.");
         },
         (error) => {
-          console.error("Error al obtener la ubicación: ", error);
           let errorMessage = "No se pudo obtener tu ubicación actual.";
           if (error.code === error.PERMISSION_DENIED) {
             errorMessage = "Permiso de ubicación denegado. Por favor, habilítalo en la configuración de tu navegador.";
@@ -399,7 +398,6 @@ export default function MapScreenWeb() {
         });
         setMarkers(fetchedMarkers);
       } catch (error) {
-        console.error("Error al cargar las trampas de Firestore: ", error);
         openErrorModal('No se pudieron cargar las trampas existentes.');
       } finally {
         setLoadingMarkers(false);
@@ -484,30 +482,35 @@ export default function MapScreenWeb() {
         ))}
       </MapContainer>
 
-      <TouchableOpacity style={styles.locateMeButton} onPress={locateUser}>
-        <Image
-          source={require('../../assets/my_location_icon.png')}
-          style={styles.locateMeIcon}
-        />
-      </TouchableOpacity>
+      {/* Condicionalmente renderiza el buscador y el botón de ubicación si ningún modal está visible */}
+      {!anyModalVisible && (
+        <>
+          <TouchableOpacity style={styles.locateMeButton} onPress={locateUser}>
+            <Image
+              source={require('../../assets/my_location_icon.png')}
+              style={styles.locateMeIcon}
+            />
+          </TouchableOpacity>
 
-      <View style={styles.searchContainer}>
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Buscar por N° Trampa"
-          placeholderTextColor="#999"
-          value={searchText}
-          onChangeText={setSearchText}
-          keyboardType="numeric"
-          onSubmitEditing={handleSearchPin}
-        />
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={handleSearchPin}
-        >
-          <Text style={styles.searchButtonText}>Buscar</Text>
-        </TouchableOpacity>
-      </View>
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar por N° Trampa"
+              placeholderTextColor="#999"
+              value={searchText}
+              onChangeText={setSearchText}
+              keyboardType="numeric"
+              onSubmitEditing={handleSearchPin}
+            />
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={handleSearchPin}
+            >
+              <Text style={styles.searchButtonText}>Buscar</Text>
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
 
       {currentClickCoords && (
         <PinCreationModal
@@ -539,7 +542,7 @@ export default function MapScreenWeb() {
         onClose={closeSuccessModal}
       />
 
-        <SuccessModal
+        <SuccessModal // Este SuccessModal se usa para errores, considera renombrarlo a ErrorModal para mayor claridad.
         visible={showErrorModal}
         title="Error"
         message={errorMessage}
@@ -596,7 +599,7 @@ const styles = StyleSheet.create({
     bottom: 10,
     left: 10,
     right: 10,
-    zIndex: 1000,
+    zIndex: 1000, // Este zIndex está bien para cuando el modal no está visible
     borderRadius: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -2 },
@@ -640,7 +643,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    zIndex: 1000,
+    zIndex: 1000, // Este zIndex también está bien para cuando el modal no está visible
     width: 50,
     height: 50,
     justifyContent: 'center',

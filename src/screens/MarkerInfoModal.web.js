@@ -45,7 +45,6 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
   const fetchFichasForTrampa = async (n_trampa) => {
     setLoadingFichas(true);
     try {
-      console.log(`Buscando fichas para n_trampa: ${n_trampa}`);
       const q = query(collection(db, 'fichas'), where('n_trampa', '==', n_trampa));
       const querySnapshot = await getDocs(q);
       const fichas = [];
@@ -56,9 +55,7 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
         }
       });
       setAssociatedFichas(fichas);
-      console.log(`Fichas encontradas para ${n_trampa}:`, fichas);
     } catch (error) {
-      console.error("Error al cargar fichas para la trampa: ", error);
       openErrorModal('No se pudieron cargar las fichas asociadas.');
       setAssociatedFichas([]);
     } finally {
@@ -67,7 +64,6 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
   };
 
   const handleGoToFichaDetail = (fichaId) => {
-    console.log("Navegando a detalles de ficha:", fichaId);
     navigation.navigate('DetalleFicha', { fichaId: fichaId });
   };
 
@@ -93,7 +89,6 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
       openSuccessModal(`Estado de la trampa actualizado a: ${newEstado}`);
       onUpdateMarker(pinId, updates);
     } catch (error) {
-      console.error("Error al actualizar el estado de la trampa: ", error);
       openErrorModal('No se pudo actualizar el estado de la trampa.');
     }
   };
@@ -113,7 +108,6 @@ export default function MarkerInfoModal({ visible, onClose, markerData, onUpdate
               onDeleteMarker(currentMarkerData.id);
               onClose();
             } catch (error) {
-              console.error("Error al eliminar la trampa: ", error);
               openErrorModal("No se pudo eliminar la trampa.");
             }
           },
@@ -229,6 +223,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    zIndex: 9999,
   },
   modalView: {
     margin: 20,
@@ -245,6 +240,7 @@ const styles = StyleSheet.create({
     maxHeight: height * 0.8,
     overflow: 'hidden',
     position: 'relative',
+    zIndex: 10000,
   },
   scrollViewContent: {
     flexGrow: 1,
