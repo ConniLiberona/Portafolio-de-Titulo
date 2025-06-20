@@ -6,6 +6,7 @@ import { AuthContext } from '../context/AuthContext';
 
 import ConfirmationModal from './ConfirmationModal';
 import InfoModal from './InfoModal';
+import EditUserModal from './EditUserModal';
 
 const functionsInstance = getFunctions(appMoscasSAG);
 
@@ -19,21 +20,16 @@ export default function GestionUsuarios() {
   const [newUserPassword, setNewUserPassword] = useState('');
   const [assignAdminToNewUser, setAssignAdminToNewUser] = useState(false);
 
- 
-  const [editingUser, setEditingUser] = useState(null); 
-  const [editEmail, setEditEmail] = useState('');
-  const [editPassword, setEditPassword] = useState(''); 
-
-  
   const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [userToDelete, setUserToDelete] = useState(null); 
+  const [userToDelete, setUserToDelete] = useState(null);
 
- 
+  const [isEditUserModalVisible, setIsEditUserModalVisible] = useState(false);
+  const [currentEditingUser, setCurrentEditingUser] = useState(null);
+
   const [isInfoModalVisible, setIsInfoModalVisible] = useState(false);
   const [infoModalTitle, setInfoModalTitle] = useState('');
   const [infoModalMessage, setInfoModalMessage] = useState('');
-  const [infoModalType, setInfoModalType] = useState('success'); 
-
+  const [infoModalType, setInfoModalType] = useState('success');
 
   const openInfoModal = (title, message, type = 'success') => {
     setInfoModalTitle(title);
@@ -42,7 +38,6 @@ export default function GestionUsuarios() {
     setIsInfoModalVisible(true);
   };
 
-  
   const closeInfoModal = () => {
     setIsInfoModalVisible(false);
     setInfoModalTitle('');
@@ -55,7 +50,6 @@ export default function GestionUsuarios() {
     if (!loading && isAdmin) {
       fetchUsers();
     } else if (!loading && !isAdmin) {
-
       openInfoModal("Acceso Denegado", "Solo los administradores pueden gestionar usuarios.", "error");
       console.log("DEBUG: Acceso denegado. El usuario no es administrador.");
     }
@@ -71,7 +65,6 @@ export default function GestionUsuarios() {
       setUsers(result.data.users);
     } catch (error) {
       console.error("DEBUG: Error en fetchUsers:", error);
-
       openInfoModal("Error", "No se pudieron cargar los usuarios: " + error.message, "error");
     } finally {
       setLoadingUsers(false);
@@ -82,7 +75,6 @@ export default function GestionUsuarios() {
   const handleCreateUser = async () => {
     console.log("DEBUG: Intentando crear usuario...");
     if (!newUserEmail || !newUserPassword) {
-
       openInfoModal("Error", "Email y Contraseña son obligatorios.", "error");
       console.log("DEBUG: Error de validación: email o contraseña vacíos.");
       return;
@@ -96,7 +88,6 @@ export default function GestionUsuarios() {
         role: assignAdminToNewUser ? 'admin' : 'commonUser'
       });
       console.log("DEBUG: Usuario creado con éxito. Resultado:", result.data);
-
       openInfoModal("Éxito", result.data.message);
       setNewUserEmail('');
       setNewUserPassword('');
@@ -104,7 +95,6 @@ export default function GestionUsuarios() {
       fetchUsers();
     } catch (error) {
       console.error("DEBUG: Error al crear usuario en handleCreateUser:", error);
-    
       openInfoModal("Error", error.message || "No se pudo crear el usuario.", "error");
     }
   };
@@ -112,7 +102,6 @@ export default function GestionUsuarios() {
   const handleUpdateUserRole = async (uid, currentClaims, newAdminStatus) => {
     console.log("DEBUG: Intentando actualizar rol para UID:", uid, "Nuevo estado admin:", newAdminStatus);
     if (uid === user.uid && currentClaims?.admin && !newAdminStatus) {
-
       openInfoModal("Error", "No puedes quitarte a ti mismo el rol de administrador.", "error");
       console.log("DEBUG: Error: Intento de quitar rol de admin al propio usuario.");
       return;
@@ -124,9 +113,9 @@ export default function GestionUsuarios() {
       commonUser: !newAdminStatus
     };
     if (newAdminStatus) {
-      delete newClaims.commonUser; 
+      delete newClaims.commonUser;
     } else {
-      newClaims.commonUser = true; 
+      newClaims.commonUser = true;
     }
     console.log("DEBUG: Nuevos claims a establecer:", newClaims);
 
@@ -134,36 +123,29 @@ export default function GestionUsuarios() {
       const updateUserRoleFunction = httpsCallable(functionsInstance, 'updateUserRole');
       const result = await updateUserRoleFunction({ uid, claims: newClaims });
       console.log("DEBUG: Rol actualizado con éxito. Resultado:", result.data);
-  
       openInfoModal("Éxito", result.data.message + "\nEl usuario deberá cerrar sesión y volver a iniciar para que el rol se actualice.");
       fetchUsers();
     } catch (error) {
       console.error("DEBUG: Error al actualizar rol en handleUpdateUserRole:", error);
-    
       openInfoModal("Error", error.message || "No se pudo actualizar el rol del usuario.", "error");
     }
   };
 
-
-  const handleDeleteUser = (uid, email) => {
-    console.log("DEBUG: Botón Eliminar presionado para:", email, "UID:", uid);
-
-    if (uid === user.uid) {
- 
+  const handleDeleteUser = (userItem) => {
+    console.log("DEBUG: Botón Eliminar presionado para:", userItem.email, "UID:", userItem.uid);
+    if (userItem.uid === user.uid) {
       openInfoModal("Error", "No puedes eliminar tu propia cuenta de usuario.", "error");
       console.log("DEBUG: Error: Intento de eliminar la propia cuenta de usuario.");
       return;
     }
 
-
-    setUserToDelete({ uid, email });
+    setUserToDelete(userItem);
     setIsDeleteModalVisible(true);
     console.log("DEBUG: Mostrando ConfirmationModal para eliminar usuario.");
   };
 
-
   const confirmDelete = async () => {
-    setIsDeleteModalVisible(false); 
+    setIsDeleteModalVisible(false);
     if (!userToDelete) {
       console.log("DEBUG: No hay usuario para eliminar en el estado. Cancelando confirmación.");
       return;
@@ -177,47 +159,86 @@ export default function GestionUsuarios() {
       console.log("DEBUG: Instancia de deleteUserFunction creada. Realizando llamada...");
       const result = await deleteUserFunction({ uid });
       console.log("DEBUG: deleteUserFunction llamada con éxito. Resultado:", result.data);
-    
       openInfoModal("Éxito", result.data.message);
-      fetchUsers(); 
+      fetchUsers();
     } catch (error) {
       console.error("DEBUG: Error CRÍTICO en la llamada o ejecución de deleteUserFunction:", error);
-
       if (error.code) {
         console.error("DEBUG: Código de error de Firebase Functions:", error.code);
       }
       if (error.details) {
         console.error("DEBUG: Detalles del error de Firebase Functions:", error.details);
       }
-   
       openInfoModal("Error", error.message || "No se pudo eliminar el usuario.", "error");
     } finally {
-      setUserToDelete(null); 
+      setUserToDelete(null);
     }
   };
 
-
   const cancelDelete = () => {
     console.log("DEBUG: Eliminación cancelada por el usuario (desde modal).");
-    setIsDeleteModalVisible(false); 
-    setUserToDelete(null); 
+    setIsDeleteModalVisible(false);
+    setUserToDelete(null);
   };
-
-
 
   const handleStartEditUser = (userItem) => {
     console.log("DEBUG: Botón Modificar presionado para:", userItem.email, "UID:", userItem.uid);
-    setEditingUser(userItem.uid);
-    setEditEmail(userItem.email);
-    setEditPassword(''); 
-   
-    openInfoModal(
-      "Modificar Usuario", 
-      `Funcionalidad para modificar el usuario ${userItem.email}. 
-      Deberías abrir un formulario o modal aquí para cambiar email/contraseña.`,
-      "info" 
-    );
+    setCurrentEditingUser(userItem);
+    setIsEditUserModalVisible(true);
+    console.log("DEBUG: Mostrando EditUserModal para modificar usuario.");
+  };
 
+  const handleSaveEditUser = async (uid, newEmail, newPassword) => {
+    console.log("DEBUG: Intentando guardar edición para UID:", uid, "Nuevo Email:", newEmail, "Nueva Contraseña:", newPassword ? "******" : "no cambiada");
+    setIsEditUserModalVisible(false);
+
+    if (!newEmail) {
+      openInfoModal("Error", "El email no puede estar vacío.", "error");
+      return;
+    }
+
+    try {
+      let message = "";
+      let hasChanges = false;
+
+      if (currentEditingUser && newEmail !== currentEditingUser.email) {
+        console.log("DEBUG: Llamando a updateUserEmail...");
+        const updateUserEmailFunction = httpsCallable(functionsInstance, 'updateUserEmail');
+        await updateUserEmailFunction({ uid, email: newEmail });
+        message += `Email actualizado a ${newEmail}.\n`;
+        hasChanges = true;
+      }
+
+      if (newPassword) {
+        if (newPassword.length < 6) {
+          openInfoModal("Error", "La nueva contraseña debe tener al menos 6 caracteres.", "error");
+          throw new Error("Contraseña demasiado corta.");
+        }
+        console.log("DEBUG: Llamando a updateUserPassword...");
+        const updateUserPasswordFunction = httpsCallable(functionsInstance, 'updateUserPassword');
+        await updateUserPasswordFunction({ uid, password: newPassword });
+        message += "Contraseña actualizada.\n";
+        hasChanges = true;
+      }
+
+      if (hasChanges) {
+        openInfoModal("Éxito", message.trim());
+        fetchUsers();
+      } else {
+        openInfoModal("Información", "No se realizaron cambios en el usuario.", "info");
+      }
+    } catch (error) {
+      console.error("DEBUG: Error al guardar edición del usuario:", error);
+      openInfoModal("Error", error.message || "No se pudo actualizar el usuario.", "error");
+    } finally {
+      setCurrentEditingUser(null);
+    }
+  };
+
+  const cancelEdit = () => {
+    console.log("DEBUG: Edición de usuario cancelada.");
+    setIsEditUserModalVisible(false);
+    setCurrentEditingUser(null);
   };
 
   if (loading || loadingUsers) {
@@ -287,7 +308,7 @@ export default function GestionUsuarios() {
                 <Button
                   title={item.customClaims?.admin ? "Quitar Admin" : "Hacer Admin"}
                   onPress={() => handleUpdateUserRole(item.uid, item.customClaims, !item.customClaims?.admin)}
-                  color={item.customClaims?.admin ? "#FF6347" : "#4CAF50"} 
+                  color={item.customClaims?.admin ? "#FF6347" : "#4CAF50"}
                 />
                 <TouchableOpacity 
                     style={[styles.actionButton, styles.modifyButton]}
@@ -297,7 +318,7 @@ export default function GestionUsuarios() {
                 </TouchableOpacity>
                 <TouchableOpacity 
                     style={[styles.actionButton, styles.deleteButton]}
-                    onPress={() => handleDeleteUser(item.uid, item.email)}
+                    onPress={() => handleDeleteUser(item)}
                 >
                     <Text style={styles.buttonText}>Eliminar</Text>
                 </TouchableOpacity>
@@ -307,7 +328,6 @@ export default function GestionUsuarios() {
         />
       </View>
 
-      {/* Renderiza el ConfirmationModal */}
       {isDeleteModalVisible && userToDelete && (
         <ConfirmationModal
           visible={isDeleteModalVisible}
@@ -318,7 +338,15 @@ export default function GestionUsuarios() {
         />
       )}
 
-      {/* Renderiza el InfoModal para éxito/error/información */}
+      {isEditUserModalVisible && currentEditingUser && (
+        <EditUserModal
+          visible={isEditUserModalVisible}
+          user={currentEditingUser}
+          onSave={handleSaveEditUser}
+          onClose={cancelEdit}
+        />
+      )}
+
       {isInfoModalVisible && (
         <InfoModal
           visible={isInfoModalVisible}
@@ -394,12 +422,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-    flexWrap: 'wrap', 
+    flexWrap: 'wrap',
   },
   userInfo: {
     flex: 1,
     marginRight: 10,
-    minWidth: 150, 
+    minWidth: 150,
   },
   userEmail: {
     fontSize: 16,
@@ -423,10 +451,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modifyButton: {
-    backgroundColor: '#007bff', 
+    backgroundColor: '#007bff',
   },
   deleteButton: {
-    backgroundColor: '#DC3545', 
+    backgroundColor: '#DC3545',
   },
   buttonText: {
     color: 'white',
